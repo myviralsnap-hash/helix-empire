@@ -57,19 +57,15 @@ export class HelixEngine {
 
     const ballGeo = new THREE.SphereGeometry(0.45, 32, 32);
     this.ball = new THREE.Mesh(ballGeo, this.getSkinMaterial('fire'));
-    this.ball.position.set(0, 12, 5.5); // Start slightly higher for better drop
+    this.ball.position.set(0, 8.5, 5.5); // Start slightly above for first drop
     this.scene.add(this.ball);
 
     this.tower = new THREE.Group();
     this.scene.add(this.tower);
 
-    // PILLAR: Metallic Dark Gold
+    // PILLAR: Metallic Gold
     const cylinderGeo = new THREE.CylinderGeometry(1.5, 1.5, 600, 32);
-    const cylinderMat = new THREE.MeshStandardMaterial({
-        color: 0x443300,
-        metalness: 0.9,
-        roughness: 0.1
-    });
+    const cylinderMat = new THREE.MeshStandardMaterial({ color: 0x221100, metalness: 0.9, roughness: 0.1 });
     const column = new THREE.Mesh(cylinderGeo, cylinderMat);
     column.userData.isPillar = true;
     this.tower.add(column);
@@ -97,7 +93,6 @@ export class HelixEngine {
     const toRemove = this.tower.children.filter(c => c.userData.isLevelObject);
     toRemove.forEach(c => this.tower.remove(c));
 
-    // PURPLE NEON FIRST (0xbc13fe)
     const colors = [0xbc13fe, 0xff007f, 0x0077ff, 0x00ffcc];
     const color = colors[level % colors.length];
     const platformCount = 12 + (level * 2);
@@ -114,7 +109,7 @@ export class HelixEngine {
     platform.userData.isLevelObject = true;
 
     const segments = 12;
-    const gapSize = isWin ? 0 : 2;
+    const gapSize = isWin ? 0 : 2; // FIRST LEVEL NOW HAS HOLES!
     const hazardCount = isWin ? 0 : Math.min(5, 1 + Math.floor(level / 4));
     const gapStart = Math.floor(Math.random() * segments);
 
@@ -131,7 +126,7 @@ export class HelixEngine {
       const arc = (1 / segments) * Math.PI * 2;
       const thickness = isWin ? 3.5 : 0.8;
 
-      const matColor = isWin ? 0xffd700 : (isHazard ? 0xff0000 : color);
+      const matColor = isWin ? 0xffaa00 : (isHazard ? 0xff0000 : color);
       const segmentGeo = new THREE.CylinderGeometry(6, 6, thickness, detail, 1, false, (i / segments) * Math.PI * 2, arc);
       const segmentMat = new THREE.MeshStandardMaterial({
         color: matColor,
@@ -182,8 +177,8 @@ export class HelixEngine {
     const ballPos = this.ball.position.clone();
     this.raycaster.set(ballPos, new THREE.Vector3(0, -1, 0));
 
-    // CRITICAL: We only check for platforms, NOT the pillar
-    const intersects = this.raycaster.intersectObjects(this.tower.children, true).filter(i => i.object.userData.isPlatform || i.object.userData.isWinPlatform);
+    // We only check for platforms
+    const intersects = this.raycaster.intersectObjects(this.tower.children, true).filter(i => i.object.userData.isPlatform);
 
     if (intersects.length > 0) {
       const hit = intersects[0];
@@ -199,8 +194,6 @@ export class HelixEngine {
           return;
         }
         this.ballVelocity = this.jumpForce;
-
-        // Only score if this is a NEW platform
         if (this.lastHitPlatform !== hit.object.parent) {
             this.state.onScoreUpdate(10);
             this.lastHitPlatform = hit.object.parent;
@@ -210,7 +203,6 @@ export class HelixEngine {
   }
 
   public revive() {
-    this.ball.position.y += 1.5;
     this.ballVelocity = this.jumpForce;
     this.lastHitPlatform = null;
     this.isPaused = false;
@@ -218,10 +210,12 @@ export class HelixEngine {
   }
 
   public resetToStart() {
-    this.ball.position.y = 8;
+    this.ball.position.set(0, 8.5, 5.5);
     this.ballVelocity = 0;
     this.tower.rotation.y = 0;
     this.lastHitPlatform = null;
+    this.isPaused = false;
+    this.autoRotate = false;
   }
 
   public setPaused(value: boolean) { this.isPaused = value; }
