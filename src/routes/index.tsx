@@ -8,7 +8,7 @@ import { AdMob, RewardAdPluginEvents, type AdMobRewardItem } from '@capacitor-co
 import { Trophy, Coins, ArrowRight, Loader2, LogIn, Award, X, UserPlus, CheckSquare, Square, Diamond } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { Link } from '@tanstack/react-router'
-import { Capacitor } from '@capacitor/core'
+import { Capacitor } from '@capacitor-core'
 
 export const Route = createFileRoute('/')({
   component: GamePage,
@@ -79,10 +79,16 @@ function GamePage() {
     if (level >= 10) tier = 3;
     else if (level >= 5) tier = 2;
 
-    const musicPath = `/music/tier${tier}.mp3`;
-    if (audioRef.current.src !== window.location.origin + musicPath) {
-        audioRef.current.src = musicPath;
-        if (gameState === 'PLAYING') audioRef.current.play().catch(() => {});
+    // CASE SENSITIVE FIX: Using .MP3 to match your files
+    const musicPath = `./music/tier${tier}.MP3`;
+    const fullUrl = new URL(musicPath, window.location.href).href;
+
+    if (audioRef.current.src !== fullUrl) {
+        audioRef.current.src = fullUrl;
+        audioRef.current.load();
+        if (gameState === 'PLAYING') {
+            audioRef.current.play().catch(e => console.log("Audio play blocked:", e));
+        }
     }
   }, [level, gameState])
 
@@ -90,12 +96,11 @@ function GamePage() {
     if (engineRef.current) engineRef.current.setupLevel(level)
   }, [level])
 
-  // SYNC ENGINE STATE
   useEffect(() => {
     if (!engineRef.current) return;
     const isActuallyPlaying = gameState === 'PLAYING' && activeTab === 'play';
     engineRef.current.autoRotate = gameState === 'HOME';
-    engineRef.current.setPaused(!isActuallyPlaying);
+    engineRef.current.isPaused = !isActuallyPlaying;
   }, [gameState, activeTab])
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -106,7 +111,8 @@ function GamePage() {
     try {
         if (isRegistering) {
             await signUp(email, password)
-            toast.success("Welcome! Check your email to verify.")
+            toast.success("Welcome! Account created.")
+            setGameState('HOME')
         } else {
             await signIn(email, password)
             toast.success("Signed in!")
@@ -120,15 +126,22 @@ function GamePage() {
   }
 
   const startGame = () => {
+    // Prime the audio on user click to unlock mobile browsers
+    if (audioRef.current) {
+        audioRef.current.play().then(() => {
+            // Success
+        }).catch(() => {
+            // Still blocked, will try again after state update
+        });
+    }
+
     setScore(0)
-    setLevel(1) // Reset to Stage 1 on new game
     setGameState('PLAYING')
     setActiveTab('play')
     if (engineRef.current) {
         engineRef.current.resetToStart()
-        engineRef.current.revive() // Kickstart physics
+        engineRef.current.revive()
     }
-    if (audioRef.current) audioRef.current.play().catch(() => {});
   }
 
   const nextLevel = async () => {
@@ -140,7 +153,6 @@ function GamePage() {
     setJumpPoints(prev => prev + bonus)
     if(vcBonus > 0 && user) await addViralCoins(vcBonus)
 
-    // Physics Reset for Next Level
     if (engineRef.current) {
         engineRef.current.resetToStart()
         engineRef.current.revive()
@@ -148,9 +160,15 @@ function GamePage() {
 
     setLevel(prev => prev + 1)
     setGameState('PLAYING')
+    setActiveTab('play')
   }
 
   const handleAdRevive = async () => {
+    if (!isNative) {
+        setGameState('PLAYING')
+        engineRef.current?.revive()
+        return;
+    }
     try {
       setIsAdLoading(true)
       const listener = await AdMob.addListener(RewardAdPluginEvents.Rewarded, (reward: AdMobRewardItem) => {
@@ -163,7 +181,6 @@ function GamePage() {
     } catch (e) {
       toast.error("Ad not ready.")
       setIsAdLoading(false)
-      // Fallback revive if ad fails
       setGameState('PLAYING')
       engineRef.current?.revive()
     }
@@ -172,14 +189,13 @@ function GamePage() {
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black select-none touch-none font-sans text-white">
       <div ref={containerRef} className="absolute inset-0 z-0" />
-
       <GameOnboarding onComplete={() => setGameState('HOME')} />
 
-      {/* TOP HUD (LIFTED) */}
+      {/* TOP HUD */}
       <div className="absolute top-4 inset-x-0 p-6 flex justify-between items-start z-[150] pointer-events-none">
           <div className="bg-black/60 backdrop-blur-xl border-2 border-white/10 rounded-2xl px-4 py-2 flex items-center gap-3 shadow-2xl pointer-events-auto">
             <Coins className="h-4 w-4 text-yellow-400" />
-            <div className="flex flex-col">
+            <div className="flex flex-col text-left">
               <span className="text-[10px] uppercase font-black tracking-widest text-white/50 leading-none">Wallet</span>
               <span className="text-sm font-black leading-none">{(profile?.coin_balance || 0).toLocaleString()} VC</span>
             </div>
@@ -210,7 +226,7 @@ function GamePage() {
                         HELIX<br /><span className="text-primary italic text-[18vw] sm:text-9xl">EMPIRE</span>
                     </h1>
                 </div>
-                <div className="flex flex-col items-center gap-4 w-full max-w-xs px-6">
+                <div className="flex flex-col items-center gap-6 w-full max-w-xs px-6">
                     <button onClick={startGame} className="w-full h-28 bg-primary text-white rounded-[40px] font-black uppercase text-4xl italic tracking-tighter shadow-glow animate-pulse active:scale-95 transition-all">
                         PLAY
                     </button>
@@ -270,8 +286,8 @@ function GamePage() {
                         <h2 className="text-4xl font-black italic tracking-tighter text-white uppercase leading-none">{isRegistering ? 'Join Empire' : 'Empire Login'}</h2>
                     </div>
                     <form onSubmit={handleAuth} className="space-y-4">
-                        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border-2 border-white/10 rounded-2xl py-4 px-6 text-white font-bold outline-none focus:border-primary text-lg" required />
-                        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-white/5 border-2 border-white/10 rounded-2xl py-4 px-6 text-white font-bold outline-none focus:border-primary text-lg" required />
+                        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border-2 border-white/10 rounded-2xl py-5 px-6 text-white font-bold outline-none focus:border-primary text-lg" required />
+                        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-white/5 border-2 border-white/10 rounded-2xl py-5 px-6 text-white font-bold outline-none focus:border-primary text-lg" required />
                         {isRegistering && (
                           <div className="flex gap-3 px-2 pt-2 items-start" onClick={() => setAgreedToTerms(!agreedToTerms)}>
                              {agreedToTerms ? <CheckSquare className="h-5 w-5 text-primary shrink-0" /> : <Square className="h-5 w-5 text-white/20 shrink-0" />}
@@ -295,7 +311,7 @@ function GamePage() {
             <div className="w-full h-full bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-12 pointer-events-auto animate-in zoom-in-95 text-center text-white z-[600]">
                 <Trophy className="h-24 w-24 text-yellow-400 mb-6 animate-bounce mx-auto" />
                 <h2 className="text-5xl font-black italic text-white uppercase mb-8 leading-none">STAGE CLEAR!</h2>
-                <button onClick={nextLevel} className="w-full max-w-xs bg-white text-black py-6 rounded-3xl font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform text-xl">
+                <button onClick={nextLevel} className="w-full max-w-xs bg-white text-black py-6 rounded-3xl font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform text-xl text-center mx-auto">
                     Next Stage <ArrowRight className="h-6 w-6" />
                 </button>
             </div>
@@ -315,13 +331,13 @@ function GamePage() {
         )}
       </div>
 
-      {/* SKINS MENU (STAYS ACCESSIBLE UNTIL POPUP OVERWRITES) */}
+      {/* NAVIGATION BAR */}
       <GameUI
         viralCoins={profile?.coin_balance || 0}
         jumpPoints={jumpPoints}
         currentSkin={skin}
         onSkinSelect={(s) => {setSkin(s); engineRef.current?.setSkin(s)}}
-        isHidden={gameState === 'PLAYING'}
+        isHidden={gameState === 'PLAYING' && activeTab === 'play'}
         onTabChange={(t) => { setActiveTab(t); if(t !== 'play') setGameState('HOME'); }}
         onOpenShop={() => setGameState('SHOP_DETAILS')}
         onOpenEvent={() => setGameState('TOURNAMENT')}
