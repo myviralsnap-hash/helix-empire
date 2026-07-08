@@ -130,7 +130,11 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
         )}
       </main>
 
-      <nav className="p-6 pb-12 flex justify-center pointer-events-auto">
+      {/* Bottom Navigation - Now a "Ghost Menu" during play */}
+      <nav className={cn(
+        "p-6 pb-12 flex justify-center pointer-events-auto transition-all duration-700",
+        isHidden && activeTab === 'play' ? "opacity-20 scale-90 pointer-events-none" : "opacity-100 scale-100"
+      )}>
         <div className="bg-black/80 backdrop-blur-3xl border-2 border-white/10 rounded-[40px] p-1.5 flex gap-1 shadow-2xl ring-1 ring-white/10">
           <NavButton icon={Home} label="Play" active={activeTab === 'play'} onClick={() => handleTab('play')} />
           <NavButton icon={Box} label="Skins" active={activeTab === 'inventory'} onClick={() => handleTab('inventory')} />

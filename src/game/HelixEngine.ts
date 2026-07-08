@@ -31,12 +31,15 @@ export class HelixEngine {
   public autoRotate = true;
   public isPaused = true;
   private lastHitPlatform: THREE.Object3D | null = null;
+  private fallStreak = 0; // Tracks consecutive floors fallen
 
   constructor(container: HTMLDivElement, state: GameState) {
     this.state = state;
     this.raycaster = new THREE.Raycaster();
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x020202);
+
+    // Initial Dynamic Background
+    this.updateBackground();
 
     this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     this.camera.position.set(0, 10, 16);
@@ -57,13 +60,12 @@ export class HelixEngine {
 
     const ballGeo = new THREE.SphereGeometry(0.45, 32, 32);
     this.ball = new THREE.Mesh(ballGeo, this.getSkinMaterial('fire'));
-    this.ball.position.set(0, 8.5, 5.5); // Start slightly above for first drop
+    this.ball.position.set(0, 8.5, 5.5);
     this.scene.add(this.ball);
 
     this.tower = new THREE.Group();
     this.scene.add(this.tower);
 
-    // PILLAR: Metallic Gold
     const cylinderGeo = new THREE.CylinderGeometry(1.5, 1.5, 600, 32);
     const cylinderMat = new THREE.MeshStandardMaterial({ color: 0x221100, metalness: 0.9, roughness: 0.1 });
     const column = new THREE.Mesh(cylinderGeo, cylinderMat);
@@ -73,6 +75,12 @@ export class HelixEngine {
     this.setupLevel(state.level);
     this.setupInputs();
     this.animate();
+  }
+
+  public updateBackground() {
+    // Shifting nebula colors based on level
+    const colors = [0x050005, 0x000508, 0x080500, 0x000805];
+    this.scene.background = new THREE.Color(colors[this.state.level % colors.length]);
   }
 
   public setSkin(skin: BallSkin) {
@@ -90,6 +98,7 @@ export class HelixEngine {
   }
 
   public setupLevel(level: number) {
+    this.updateBackground();
     const toRemove = this.tower.children.filter(c => c.userData.isLevelObject);
     toRemove.forEach(c => this.tower.remove(c));
 
@@ -98,19 +107,19 @@ export class HelixEngine {
     const platformCount = 12 + (level * 2);
 
     for (let i = 0; i < platformCount; i++) {
-        this.createPlatform(5 - (i * 6), color, i === platformCount - 1, level);
+        this.createPlatform(5 - (i * 6), color, i === platformCount - 1, i === 0, level);
     }
     this.lastHitPlatform = null;
   }
 
-  private createPlatform(y: number, color: number, isWin: boolean, level: number) {
+  private createPlatform(y: number, color: number, isWin: boolean, isFirst: boolean, level: number) {
     const platform = new THREE.Group();
     platform.position.y = y;
     platform.userData.isLevelObject = true;
 
     const segments = 12;
-    const gapSize = isWin ? 0 : 2; // FIRST LEVEL NOW HAS HOLES!
-    const hazardCount = isWin ? 0 : Math.min(5, 1 + Math.floor(level / 4));
+    const gapSize = isWin ? 0 : 2;
+    const hazardCount = (isWin || isFirst) ? 0 : Math.min(5, 1 + Math.floor(level / 4));
     const gapStart = Math.floor(Math.random() * segments);
 
     let detail = 32;
@@ -118,11 +127,11 @@ export class HelixEngine {
     else if (level >= 5) detail = 12;
 
     for (let i = 0; i < segments; i++) {
-      if (!isWin) {
+      if (!isWin && !isFirst) {
         const isGap = (i >= gapStart && i < gapStart + gapSize) || (i + segments >= gapStart && i + segments < gapStart + gapSize);
         if (isGap) continue;
       }
-      const isHazard = !isWin && (i >= (gapStart + 6) % segments && i < (gapStart + 6 + hazardCount) % segments);
+      const isHazard = !isWin && !isFirst && (i >= (gapStart + 6) % segments && i < (gapStart + 6 + hazardCount) % segments);
       const arc = (1 / segments) * Math.PI * 2;
       const thickness = isWin ? 3.5 : 0.8;
 
@@ -166,6 +175,22 @@ export class HelixEngine {
     }
     this.ballVelocity += this.gravity;
     this.ball.position.y += this.ballVelocity;
+
+    // Track streaks (falling through gaps)
+    if (this.ballVelocity < -0.2) {
+        // We are moving fast, check if we passed a floor height
+        const currentFloorY = Math.floor(this.ball.position.y / 6);
+        const lastFloorY = Math.floor((this.ball.position.y - this.ballVelocity) / 6);
+
+        if (currentFloorY < lastFloorY) {
+            this.fallStreak++;
+            if (this.fallStreak >= 3) {
+                this.state.onScoreUpdate(50); // Massive bonus for 3 floors
+                // Visual effect for fireball mode
+            }
+        }
+    }
+
     const targetCamY = this.ball.position.y + 5;
     this.camera.position.y += (targetCamY - this.camera.position.y) * 0.1;
     this.checkCollisions();
@@ -176,8 +201,6 @@ export class HelixEngine {
     if (this.ballVelocity > 0) return;
     const ballPos = this.ball.position.clone();
     this.raycaster.set(ballPos, new THREE.Vector3(0, -1, 0));
-
-    // We only check for platforms
     const intersects = this.raycaster.intersectObjects(this.tower.children, true).filter(i => i.object.userData.isPlatform);
 
     if (intersects.length > 0) {
@@ -194,6 +217,10 @@ export class HelixEngine {
           return;
         }
         this.ballVelocity = this.jumpForce;
+
+        // Reset streak on bounce
+        this.fallStreak = 0;
+
         if (this.lastHitPlatform !== hit.object.parent) {
             this.state.onScoreUpdate(10);
             this.lastHitPlatform = hit.object.parent;
@@ -214,11 +241,9 @@ export class HelixEngine {
     this.ballVelocity = 0;
     this.tower.rotation.y = 0;
     this.lastHitPlatform = null;
-    this.isPaused = false;
-    this.autoRotate = false;
+    this.isPaused = true;
+    this.autoRotate = true;
   }
 
-  public setPaused(value: boolean) { this.isPaused = value; }
-  public setAutoRotate(value: boolean) { this.autoRotate = value; }
   public dispose() { this.renderer.dispose(); }
 }
