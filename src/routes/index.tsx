@@ -76,8 +76,11 @@ function GamePage() {
     }
 
     let tier = 1;
-    if (level >= 10) tier = 3;
-    else if (level >= 5) tier = 2;
+    // Cycling logic: every 15 levels, the cycle repeats.
+    // Level 1-5: Tier 1, Level 6-10: Tier 2, Level 11-15: Tier 3
+    const cyclePos = ((level - 1) % 15) + 1;
+    if (cyclePos >= 11) tier = 3;
+    else if (cyclePos >= 6) tier = 2;
 
     // CASE SENSITIVE FIX: Using .MP3 to match your files
     const musicPath = `./music/tier${tier}.MP3`;
