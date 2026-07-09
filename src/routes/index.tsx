@@ -78,7 +78,7 @@ function GamePage() {
 
     const shuffleNextSong = () => {
         const trackNumber = Math.floor(Math.random() * 15) + 1;
-        const musicPath = `./music/tier${trackNumber}.MP3`;
+        const musicPath = `/music/tier${trackNumber}.MP3`;
         if (audioRef.current) {
             audioRef.current.src = musicPath;
             audioRef.current.load();
@@ -132,6 +132,9 @@ function GamePage() {
     setActiveTab('play')
     if (engineRef.current) {
         engineRef.current.resetToStart()
+        // Ensure unpaused and physics kickstart
+        engineRef.current.isPaused = false;
+        engineRef.current.autoRotate = false;
         engineRef.current.revive()
     }
     if (audioRef.current) {
