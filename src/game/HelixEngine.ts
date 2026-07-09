@@ -77,23 +77,25 @@ export class HelixEngine {
   }
 
   public updateBackground() {
-    const colors = [0x050005, 0x000508, 0x080500, 0x000805];
+    // VIBRANT NEBULA COLORS
+    const colors = [0x1a0033, 0x001a33, 0x33001a, 0x00331a];
     this.scene.background = new THREE.Color(colors[this.state.level % colors.length]);
 
-    // Added a Starfield for that "Empire" space look
-    if (!this.scene.getObjectByName('stars')) {
-      const starGeo = new THREE.BufferGeometry();
-      const starCount = 2000;
-      const posArray = new Float32Array(starCount * 3);
-      for(let i=0; i<starCount*3; i++) {
-          posArray[i] = (Math.random() - 0.5) * 100;
-      }
-      starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-      const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.1, transparent: true, opacity: 0.8 });
-      const stars = new THREE.Points(starGeo, starMat);
-      stars.name = 'stars';
-      this.scene.add(stars);
+    // Starfield
+    const oldStars = this.scene.getObjectByName('stars');
+    if (oldStars) this.scene.remove(oldStars);
+
+    const starGeo = new THREE.BufferGeometry();
+    const starCount = 3000;
+    const posArray = new Float32Array(starCount * 3);
+    for(let i=0; i<starCount*3; i++) {
+        posArray[i] = (Math.random() - 0.5) * 120;
     }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.9 });
+    const stars = new THREE.Points(starGeo, starMat);
+    stars.name = 'stars';
+    this.scene.add(stars);
   }
 
   public setSkin(skin: BallSkin) {
@@ -111,6 +113,7 @@ export class HelixEngine {
   }
 
   public setupLevel(level: number) {
+    this.state.level = level;
     this.updateBackground();
     const toRemove = this.tower.children.filter(c => c.userData.isLevelObject);
     toRemove.forEach(c => this.tower.remove(c));
@@ -120,20 +123,20 @@ export class HelixEngine {
     const platformCount = 12 + (level * 2);
 
     for (let i = 0; i < platformCount; i++) {
-        this.createPlatform(5 - (i * 6), color, i === platformCount - 1, level);
+        this.createPlatform(5 - (i * 6), color, i === platformCount - 1, i === 0, level);
     }
     this.lastHitPlatform = null;
     this.fallStreak = 0;
   }
 
-  private createPlatform(y: number, color: number, isWin: boolean, level: number) {
+  private createPlatform(y: number, color: number, isWin: boolean, isFirst: boolean, level: number) {
     const platform = new THREE.Group();
     platform.position.y = y;
     platform.userData.isLevelObject = true;
 
     const segments = 12;
-    const gapSize = isWin ? 0 : 2;
-    const hazardCount = isWin ? 0 : Math.min(5, 1 + Math.floor(level / 4));
+    const gapSize = (isWin || isFirst) ? 0 : 2;
+    const hazardCount = (isWin || isFirst) ? 0 : Math.min(5, 1 + Math.floor(level / 4));
     const gapStart = Math.floor(Math.random() * segments);
 
     let detail = 32;
@@ -141,11 +144,11 @@ export class HelixEngine {
     else if (level >= 5) detail = 12;
 
     for (let i = 0; i < segments; i++) {
-      if (!isWin) {
+      if (!isWin && !isFirst) {
         const isGap = (i >= gapStart && i < gapStart + gapSize) || (i + segments >= gapStart && i + segments < gapStart + gapSize);
         if (isGap) continue;
       }
-      const isHazard = !isWin && (i >= (gapStart + 6) % segments && i < (gapStart + 6 + hazardCount) % segments);
+      const isHazard = !isWin && !isFirst && (i >= (gapStart + 6) % segments && i < (gapStart + 6 + hazardCount) % segments);
       const arc = (1 / segments) * Math.PI * 2;
       const thickness = isWin ? 3.5 : 0.8;
 
@@ -169,7 +172,6 @@ export class HelixEngine {
     const handleMove = (clientX: number) => {
         if (!this.isRotating) return;
         const deltaX = clientX - this.previousMouseX;
-        // Faster rotation for better feel
         this.tower.rotation.y += deltaX * 0.015;
         this.previousMouseX = clientX;
     };
@@ -191,7 +193,6 @@ export class HelixEngine {
     this.ballVelocity += this.gravity;
     this.ball.position.y += this.ballVelocity;
 
-    // Streak Logic
     if (this.ballVelocity < -0.2) {
       const currentFloorY = Math.floor(this.ball.position.y / 6);
       const lastFloorY = Math.floor((this.ball.position.y - this.ballVelocity) / 6);
@@ -213,9 +214,7 @@ export class HelixEngine {
     if (this.ballVelocity > 0) return;
     const ballPos = this.ball.position.clone();
     this.raycaster.set(ballPos, new THREE.Vector3(0, -1, 0));
-
-    // Check platforms only
-    const intersects = this.raycaster.intersectObjects(this.tower.children, true).filter(i => i.object.userData.isPlatform);
+    const intersects = this.raycaster.intersectObjects(this.tower.children, true).filter(i => i.object.userData.isPlatform || i.object.userData.isWinPlatform);
 
     if (intersects.length > 0) {
       const hit = intersects[0];
@@ -230,10 +229,8 @@ export class HelixEngine {
           this.isPaused = true;
           return;
         }
-
         this.ballVelocity = this.jumpForce;
         this.fallStreak = 0;
-
         if (this.lastHitPlatform !== hit.object.parent) {
             this.state.onScoreUpdate(10);
             this.lastHitPlatform = hit.object.parent;

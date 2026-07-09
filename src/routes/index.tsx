@@ -8,7 +8,7 @@ import { AdMob, RewardAdPluginEvents, type AdMobRewardItem } from '@capacitor-co
 import { Trophy, Coins, ArrowRight, Loader2, LogIn, Award, X, UserPlus, CheckSquare, Square, Diamond } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { Link } from '@tanstack/react-router'
-import { Capacitor } from '@capacitor/core'
+import { Capacitor } from '@capacitor-core'
 
 export const Route = createFileRoute('/')({
   component: GamePage,
@@ -68,42 +68,40 @@ function GamePage() {
     return () => engine.dispose()
   }, [])
 
-  // Manage Music Evolution
+  // Infinite Music Shuffle System
   useEffect(() => {
     if (!audioRef.current) {
         audioRef.current = new Audio();
-        audioRef.current.loop = true;
+        audioRef.current.loop = false; // Set to false to trigger onEnded for next shuffle
+        audioRef.current.onended = () => shuffleNextSong();
     }
 
-    let tier = 1;
-    // Cycling logic: every 15 levels, the cycle repeats.
-    // Level 1-5: Tier 1, Level 6-10: Tier 2, Level 11-15: Tier 3
-    const cyclePos = ((level - 1) % 15) + 1;
-    if (cyclePos >= 11) tier = 3;
-    else if (cyclePos >= 6) tier = 2;
-
-    // CASE SENSITIVE FIX: Using .MP3 to match your files
-    const musicPath = `./music/tier${tier}.MP3`;
-    const fullUrl = new URL(musicPath, window.location.href).href;
-
-    if (audioRef.current.src !== fullUrl) {
-        audioRef.current.src = fullUrl;
-        audioRef.current.load();
-        if (gameState === 'PLAYING') {
-            audioRef.current.play().catch(e => console.log("Audio play blocked:", e));
+    const shuffleNextSong = () => {
+        const trackNumber = Math.floor(Math.random() * 15) + 1;
+        const musicPath = `./music/tier${trackNumber}.MP3`;
+        if (audioRef.current) {
+            audioRef.current.src = musicPath;
+            audioRef.current.load();
+            if (gameState === 'PLAYING') audioRef.current.play().catch(() => {});
         }
-    }
+    };
+
+    if (!audioRef.current.src) shuffleNextSong();
+
+    if (gameState === 'PLAYING') audioRef.current.play().catch(() => {});
+    else if (gameState === 'HOME') audioRef.current.volume = 0.3; // Low volume for home
   }, [level, gameState])
 
   useEffect(() => {
     if (engineRef.current) engineRef.current.setupLevel(level)
   }, [level])
 
+  // SYNC ENGINE STATE
   useEffect(() => {
     if (!engineRef.current) return;
     const isActuallyPlaying = gameState === 'PLAYING' && activeTab === 'play';
-    engineRef.current.autoRotate = gameState === 'HOME';
-    engineRef.current.isPaused = !isActuallyPlaying;
+    engineRef.current.setAutoRotate(gameState === 'HOME');
+    engineRef.current.setPaused(!isActuallyPlaying);
   }, [gameState, activeTab])
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -129,21 +127,16 @@ function GamePage() {
   }
 
   const startGame = () => {
-    // Prime the audio on user click to unlock mobile browsers
-    if (audioRef.current) {
-        audioRef.current.play().then(() => {
-            // Success
-        }).catch(() => {
-            // Still blocked, will try again after state update
-        });
-    }
-
     setScore(0)
     setGameState('PLAYING')
     setActiveTab('play')
     if (engineRef.current) {
         engineRef.current.resetToStart()
         engineRef.current.revive()
+    }
+    if (audioRef.current) {
+        audioRef.current.volume = 1.0;
+        audioRef.current.play().catch(() => {});
     }
   }
 
@@ -154,9 +147,14 @@ function GamePage() {
     const bonus = 100 + (level * 10);
     const vcBonus = level % 5 === 0 ? 50 : 0;
     setJumpPoints(prev => prev + bonus)
-    if(vcBonus > 0 && user) await addViralCoins(vcBonus)
+
+    if(vcBonus > 0 && user) {
+        await addViralCoins(vcBonus)
+        toast.success(`EMPIRE BONUS: +${vcBonus} ViralCoins!`, { icon: '🔥' })
+    }
 
     if (engineRef.current) {
+        engineRef.current.setupLevel(level + 1);
         engineRef.current.resetToStart()
         engineRef.current.revive()
     }
@@ -167,16 +165,12 @@ function GamePage() {
   }
 
   const handleAdRevive = async () => {
-    if (!isNative) {
-        setGameState('PLAYING')
-        engineRef.current?.revive()
-        return;
-    }
     try {
       setIsAdLoading(true)
       const listener = await AdMob.addListener(RewardAdPluginEvents.Rewarded, (reward: AdMobRewardItem) => {
         setGameState('PLAYING')
         engineRef.current?.revive()
+        if (audioRef.current) audioRef.current.play().catch(() => {});
         setIsAdLoading(false)
         listener.remove()
       })
@@ -186,6 +180,7 @@ function GamePage() {
       setIsAdLoading(false)
       setGameState('PLAYING')
       engineRef.current?.revive()
+      if (audioRef.current) audioRef.current.play().catch(() => {});
     }
   }
 
@@ -253,14 +248,14 @@ function GamePage() {
         {/* SHOP MODAL */}
         {gameState === 'SHOP_DETAILS' && (
              <div className="w-full h-full bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-8 pointer-events-auto animate-in slide-in-from-bottom-10 z-[600]">
-                <button onClick={() => setGameState('HOME')} className="absolute top-12 right-8 text-white/40 p-2"><X className="h-8 w-8" /></button>
-                <div className="w-full max-w-sm space-y-8 text-center">
+                <button onClick={() => setGameState('HOME')} className="absolute top-12 right-8 text-white/40 p-2 hover:text-white transition-colors"><X className="h-10 w-10" /></button>
+                <div className="w-full max-w-sm space-y-10 text-center">
                     <div className="h-32 w-32 bg-blue-600/20 rounded-[40px] flex items-center justify-center mx-auto ring-4 ring-blue-600/40">
                         <Diamond className="h-16 w-16 text-blue-400" />
                     </div>
                     <h2 className="text-5xl font-black italic text-white uppercase tracking-tighter leading-none">Empire Pack</h2>
-                    <p className="text-xs font-bold text-white/60 uppercase tracking-widest">Ad-Free Gaming + Pro status in all Empire Network apps.</p>
-                    <button className="w-full bg-white text-black py-6 rounded-3xl font-black uppercase text-xl shadow-2xl">SUBSCRIBE NOW</button>
+                    <p className="text-xs font-bold text-white/60 uppercase tracking-widest px-4">Ad-Free Gaming + Pro status in all Empire Network apps.</p>
+                    <button onClick={() => toast.info("Google Play Billing starting...")} className="w-full bg-white text-black py-6 rounded-3xl font-black uppercase text-xl shadow-2xl active:scale-95 transition-all">SUBSCRIBE NOW</button>
                 </div>
              </div>
         )}
@@ -268,15 +263,15 @@ function GamePage() {
         {/* TOURNAMENT MODAL */}
         {gameState === 'TOURNAMENT' && (
              <div className="w-full h-full bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-8 pointer-events-auto animate-in zoom-in-95 z-[600]">
-                <button onClick={() => setGameState('HOME')} className="absolute top-12 right-8 text-white/40 p-2"><X className="h-8 w-8" /></button>
+                <button onClick={() => setGameState('HOME')} className="absolute top-12 right-8 text-white/40 p-2 hover:text-white transition-colors"><X className="h-10 w-10" /></button>
                 <div className="w-full max-w-sm space-y-8 text-center">
                     <Trophy className="h-32 w-32 text-yellow-400 mx-auto animate-bounce" />
                     <h2 className="text-5xl font-black italic text-white uppercase tracking-tighter leading-none">Tournament</h2>
                     <div className="bg-white/5 border-2 border-white/10 p-6 rounded-[40px] space-y-2">
-                        <p className="text-[10px] font-black uppercase text-white/40">Prize Pool</p>
-                        <p className="text-4xl font-black text-yellow-400 tracking-tighter">5,000 VC</p>
+                        <p className="text-[10px] font-black uppercase text-white/40 leading-none">Prize Pool</p>
+                        <p className="text-4xl font-black text-yellow-400 tracking-tighter leading-none">5,000 VC</p>
                     </div>
-                    <button className="w-full bg-primary py-6 rounded-3xl font-black uppercase text-xl shadow-glow">JOIN EVENT</button>
+                    <button onClick={() => toast.success("Entered Tournament!")} className="w-full bg-primary py-6 rounded-3xl font-black uppercase text-xl shadow-glow active:scale-95 transition-all">JOIN EVENT</button>
                 </div>
              </div>
         )}
@@ -299,7 +294,7 @@ function GamePage() {
                              </p>
                           </div>
                         )}
-                        <button type="submit" disabled={authLoading} className="w-full bg-primary py-6 rounded-3xl text-white font-black uppercase tracking-widest shadow-glow flex items-center justify-center text-xl italic gap-2 transition-opacity disabled:opacity-50">
+                        <button type="submit" disabled={authLoading} className="w-full bg-primary py-6 rounded-3xl text-white font-black uppercase tracking-widest shadow-glow flex items-center justify-center text-xl italic gap-2 transition-opacity">
                             {authLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : (isRegistering ? 'Create Account' : 'Sign In')}
                         </button>
                     </form>
