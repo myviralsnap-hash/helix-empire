@@ -145,7 +145,7 @@ export class HelixEngine {
     else if (level >= 5) detail = 12;
 
     for (let i = 0; i < segments; i++) {
-      if (!isWin && !isFirst) {
+      if (!isWin) {
         const isGap = (i >= gapStart && i < gapStart + gapSize) || (i + segments >= gapStart && i + segments < gapStart + gapSize);
         if (isGap) continue;
       }
