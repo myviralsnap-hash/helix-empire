@@ -68,29 +68,33 @@ function GamePage() {
     return () => engine.dispose()
   }, [])
 
-  // Infinite Music Shuffle System
+  // Music System - Picks a new song every level and LOOPS it
   useEffect(() => {
     if (!audioRef.current) {
         audioRef.current = new Audio();
-        audioRef.current.loop = false; // Set to false to trigger onEnded for next shuffle
-        audioRef.current.onended = () => shuffleNextSong();
+        audioRef.current.loop = true;
     }
 
-    const shuffleNextSong = () => {
-        const trackNumber = Math.floor(Math.random() * 15) + 1;
-        const musicPath = `/music/tier${trackNumber}.MP3`;
-        if (audioRef.current) {
-            audioRef.current.src = musicPath;
-            audioRef.current.load();
-            if (gameState === 'PLAYING') audioRef.current.play().catch(() => {});
-        }
-    };
+    const trackNumber = Math.floor(Math.random() * 15) + 1;
+    audioRef.current.src = `/music/tier${trackNumber}.MP3`;
+    audioRef.current.load();
 
-    if (!audioRef.current.src) shuffleNextSong();
+    if (gameState === 'PLAYING' || gameState === 'HOME') {
+        audioRef.current.play().catch(() => {});
+    }
+  }, [level])
 
-    if (gameState === 'PLAYING') audioRef.current.play().catch(() => {});
-    else if (gameState === 'HOME') audioRef.current.volume = 0.3; // Low volume for home
-  }, [level, gameState])
+  // Volume & Playback Control
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (gameState === 'PLAYING') {
+        audioRef.current.volume = 1.0;
+        audioRef.current.play().catch(() => {});
+    } else if (gameState === 'HOME') {
+        audioRef.current.volume = 0.3;
+        audioRef.current.play().catch(() => {});
+    }
+  }, [gameState])
 
   useEffect(() => {
     if (engineRef.current) engineRef.current.setupLevel(level)
