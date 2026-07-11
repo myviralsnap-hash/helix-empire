@@ -50,10 +50,43 @@ export function useAuth() {
     if (!error) setProfile({ ...profile, coin_balance: newBalance });
   }
 
+  async function addJumpPoints(amount: number) {
+    if (!user || !profile) return;
+    // We use jump_balance as the persistent field
+    const newBalance = (profile.jump_balance || 0) + amount;
+    const { error } = await supabase.from('profiles').update({ jump_balance: newBalance }).eq('id', user.id);
+    if (!error) setProfile({ ...profile, jump_balance: newBalance });
+    else console.error("Error updating JP:", error);
+  }
+
+  async function requestPayout(rewardName: string, jpCost: number) {
+    if (!user || !profile) return;
+    if ((profile.jump_balance || 0) < jpCost) return toast.error("Insufficient JP");
+
+    const { error: insertError } = await supabase.from('payout_requests').insert({
+        user_id: user.id,
+        email: user.email,
+        reward_type: rewardName,
+        jp_amount: jpCost,
+        status: 'pending'
+    });
+
+    if (insertError) {
+        toast.error("Failed to submit request. Try again later.");
+        return;
+    }
+
+    const newBalance = profile.jump_balance - jpCost;
+    await supabase.from('profiles').update({ jump_balance: newBalance }).eq('id', user.id);
+    setProfile({ ...profile, jump_balance: newBalance });
+
+    toast.success("Request Submitted! Check your email soon.", { duration: 5000 });
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     toast.success("Signed out successfully");
   }
 
-  return { user, profile, loading, signIn, signUp, addViralCoins, signOut };
+  return { user, profile, loading, signIn, signUp, addViralCoins, addJumpPoints, requestPayout, signOut };
 }

@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Home, ShoppingBag, Award, Box, Coins, Check, LogOut, Zap, Trophy, Flame, Star, ShieldCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Home, ShoppingBag, Award, Box, Coins, Check, LogOut, Zap, Trophy, Flame, Star, ShieldCheck, Gift, ArrowRight, X, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
+import { Link } from '@tanstack/react-router';
 
 type Tab = 'play' | 'inventory' | 'store' | 'event';
 
@@ -14,9 +15,10 @@ const SKINS = [
   { id: 'crown', name: 'Grand Crown', emoji: '👑', price: 0, type: 'viralcoins' },
 ];
 
-export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', onSkinSelect, isHidden = false, onTabChange, onOpenShop, onOpenEvent }) {
+export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', onSkinSelect, isHidden = false, onTabChange, onOpenShop, onOpenEvent, requestPayout }) {
   const [activeTab, setActiveTab] = useState<Tab>('play');
-  const [ownedSkins, setOwnedSkins] = useState(['fire']);
+  const [ownedSkins, setOwnedSkins] = useState(['fire', 'gold', 'glass', 'yellow', 'crown']);
+  const [showRedeem, setShowRedeem] = useState(false);
   const { user, signOut } = useAuth();
 
   const handleTab = (tab: Tab) => {
@@ -25,18 +27,7 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
   };
 
   const buySkin = (skin) => {
-    if (ownedSkins.includes(skin.id)) {
-        onSkinSelect(skin.id);
-        return;
-    }
-    const canAfford = skin.type === 'viralcoins' ? viralCoins >= skin.price : jumpPoints >= skin.price;
-    if (canAfford) {
-        setOwnedSkins([...ownedSkins, skin.id]);
-        onSkinSelect(skin.id);
-        toast.success(`Unlocked ${skin.name}!`, { icon: '✨' });
-    } else {
-        toast.error(`Not enough ${skin.type === 'viralcoins' ? 'VC' : 'JP'}. Play more to earn!`);
-    }
+    onSkinSelect(skin.id);
   };
 
   return (
@@ -54,9 +45,7 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
                 <h2 className="text-5xl font-black italic tracking-tighter uppercase text-gradient-fire leading-none">Inventory</h2>
             </div>
             <div className="grid grid-cols-2 gap-4 pb-20">
-              {SKINS.map(skin => {
-                const isOwned = ownedSkins.includes(skin.id);
-                return (
+              {SKINS.map(skin => (
                     <button
                         key={skin.id}
                         onClick={() => buySkin(skin)}
@@ -65,12 +54,11 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
                             currentSkin === skin.id ? "border-primary bg-primary/20 shadow-glow" : "border-white/10 bg-white/5"
                         )}
                     >
-                        <span className={cn("text-5xl group-hover:scale-110 transition-transform", !isOwned && "grayscale opacity-30")}>{skin.emoji}</span>
+                        <span className="text-5xl group-hover:scale-110 transition-transform">{skin.emoji}</span>
                         <span className="font-black uppercase text-[10px] tracking-widest">{skin.name}</span>
                         {currentSkin === skin.id && <div className="absolute top-3 right-3 bg-primary rounded-full p-1 shadow-lg"><Check className="h-3 w-3" /></div>}
                     </button>
-                )
-              })}
+              ))}
             </div>
             {user && (
               <button onClick={signOut} className="w-full flex items-center justify-center gap-3 bg-white/5 border-2 border-white/10 py-5 rounded-3xl active:bg-red-500/20 active:border-red-500/40 transition-all group mt-8">
@@ -118,8 +106,16 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
         {activeTab === 'event' && (
           <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 pb-12">
              <div className="text-center">
-                <h2 className="text-5xl font-black italic tracking-tighter uppercase text-blue-400 leading-none">Challenges</h2>
+                <h2 className="text-5xl font-black italic tracking-tighter uppercase text-blue-400 leading-none">Rewards</h2>
             </div>
+
+            <div className="bg-gradient-to-br from-green-900 to-emerald-900 p-8 rounded-[50px] border-4 border-white/10 text-center shadow-2xl relative overflow-hidden group">
+                <Gift className="h-20 w-20 text-green-400 mx-auto mb-4" />
+                <h3 className="text-2xl font-black uppercase italic tracking-tighter">Redeem Points</h3>
+                <p className="text-xs font-bold opacity-60 uppercase tracking-widest mb-8">Trade your JumpPoints for Gift Cards & PayPal</p>
+                <button onClick={() => setShowRedeem(true)} className="w-full bg-white text-green-900 py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-transform">BROWSE CATALOG</button>
+            </div>
+
             <div className="bg-gradient-to-br from-indigo-900 to-purple-900 p-8 rounded-[50px] border-4 border-white/10 text-center shadow-2xl relative overflow-hidden group">
                 <Trophy className="h-20 w-20 text-yellow-400 mx-auto mb-4" />
                 <h3 className="text-2xl font-black uppercase italic tracking-tighter">Grand Masters</h3>
@@ -129,6 +125,30 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
           </div>
         )}
       </main>
+
+      {/* REDEMPTION OVERLAY */}
+      {showRedeem && (
+        <div className="fixed inset-0 z-[600] bg-black/98 backdrop-blur-2xl flex flex-col items-center justify-center p-8 pointer-events-auto animate-in zoom-in-95">
+            <button onClick={() => setShowRedeem(false)} className="absolute top-12 right-8 text-white/40 p-2 hover:text-white"><X className="h-10 w-10" /></button>
+            <div className="w-full max-w-sm space-y-8">
+                <div className="text-center space-y-2">
+                    <h2 className="text-5xl font-black italic tracking-tighter uppercase leading-none">Redeem JP</h2>
+                    <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Available: <span className="text-green-400">{jumpPoints.toLocaleString()} JP</span></p>
+                </div>
+
+                <div className="space-y-4">
+                    <PayoutOption icon="💳" name="PayPal Cashout" req="500,000 JP" current={jumpPoints} val="$5.00" onClaim={() => requestPayout('PayPal $5', 500000)} />
+                    <PayoutOption icon="🛒" name="Amazon Gift Card" req="250,000 JP" current={jumpPoints} val="$2.00" onClaim={() => requestPayout('Amazon $2', 250000)} />
+                    <PayoutOption icon="📱" name="Google Play" req="250,000 JP" current={jumpPoints} val="$2.00" onClaim={() => requestPayout('Google Play $2', 250000)} />
+                    <PayoutOption icon="🍎" name="Apple Gift Card" req="500,000 JP" current={jumpPoints} val="$5.00" onClaim={() => requestPayout('Apple $5', 500000)} />
+                </div>
+
+                <div className="pt-4">
+                    <Link to="/how-to-redeem" className="text-center block w-full text-[10px] font-black uppercase tracking-widest text-primary underline">How it works & Rules</Link>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* Bottom Navigation - Now a "Ghost Menu" during play */}
       <nav className={cn(
@@ -144,6 +164,32 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
       </nav>
     </div>
   );
+}
+
+function PayoutOption({ icon, name, req, current, val, onClaim }) {
+    const rawReq = parseInt(req.replace(/,/g, ''));
+    const isLocked = current < rawReq;
+
+    return (
+        <div className="bg-white/5 border-2 border-white/10 rounded-[35px] p-5 flex items-center justify-between group">
+            <div className="flex items-center gap-4">
+                <span className="text-3xl">{icon}</span>
+                <div className="flex flex-col">
+                    <span className="font-black uppercase tracking-tighter text-sm leading-none">{name}</span>
+                    <span className="text-[9px] font-bold opacity-40 uppercase mt-1">{req}</span>
+                </div>
+            </div>
+            <button
+                onClick={() => isLocked ? toast.error(`Keep playing! You need ${req} for this reward.`) : onClaim()}
+                className={cn(
+                    "px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase transition-all shadow-lg",
+                    isLocked ? "bg-white/10 text-white/20" : "bg-green-500 text-white shadow-green-500/20"
+                )}
+            >
+                {isLocked ? 'Locked' : `Claim ${val}`}
+            </button>
+        </div>
+    )
 }
 
 function NavButton({ icon: Icon, label, active, onClick }) {

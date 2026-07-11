@@ -18,7 +18,7 @@ function GamePage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<HelixEngine | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const { user, profile, signIn, signUp, signOut, addViralCoins } = useAuth()
+  const { user, profile, signIn, signUp, signOut, addViralCoins, addJumpPoints, requestPayout } = useAuth()
 
   const [skin, setSkin] = useState<BallSkin>('fire')
   const [score, setScore] = useState(0)
@@ -26,7 +26,6 @@ function GamePage() {
   const [gameState, setGameState] = useState<'HOME' | 'PLAYING' | 'REVIVE' | 'WIN' | 'AUTH' | 'SHOP_DETAILS' | 'TOURNAMENT'>('HOME')
   const [activeTab, setActiveTab] = useState<'play' | 'inventory' | 'store' | 'event'>('play')
   const [isAdLoading, setIsAdLoading] = useState(false)
-  const [jumpPoints, setJumpPoints] = useState(0)
 
   // Auth form states
   const [email, setEmail] = useState('')
@@ -61,7 +60,10 @@ function GamePage() {
         setGameState('REVIVE')
         if (isNative) AdMob.prepareRewardVideoAd({ adId: REWARDED_AD_ID }).catch(() => {})
       },
-      onScoreUpdate: (pts) => setScore(prev => prev + pts)
+      onScoreUpdate: (pts) => {
+          setScore(prev => prev + pts);
+          if (user) addJumpPoints(pts);
+      }
     })
 
     engineRef.current = engine
@@ -153,11 +155,13 @@ function GamePage() {
     }
     const bonus = 100 + (level * 10);
     const vcBonus = level % 5 === 0 ? 50 : 0;
-    setJumpPoints(prev => prev + bonus)
 
-    if(vcBonus > 0 && user) {
-        await addViralCoins(vcBonus)
-        toast.success(`EMPIRE BONUS: +${vcBonus} ViralCoins!`, { icon: '🔥' })
+    if (user) {
+        await addJumpPoints(bonus);
+        if(vcBonus > 0) {
+            await addViralCoins(vcBonus)
+            toast.success(`EMPIRE BONUS: +${vcBonus} ViralCoins!`, { icon: '🔥' })
+        }
     }
 
     if (engineRef.current) {
@@ -353,13 +357,14 @@ function GamePage() {
       {/* NAVIGATION BAR */}
       <GameUI
         viralCoins={profile?.coin_balance || 0}
-        jumpPoints={jumpPoints}
+        jumpPoints={profile?.jump_balance || 0}
         currentSkin={skin}
         onSkinSelect={(s) => {setSkin(s); engineRef.current?.setSkin(s)}}
         isHidden={gameState === 'PLAYING' && activeTab === 'play'}
         onTabChange={(t) => { setActiveTab(t); if(t !== 'play') setGameState('HOME'); }}
         onOpenShop={() => setGameState('SHOP_DETAILS')}
         onOpenEvent={() => setGameState('TOURNAMENT')}
+        requestPayout={requestPayout}
       />
     </div>
   )
