@@ -18,7 +18,7 @@ function GamePage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<HelixEngine | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const { user, profile, signIn, signUp, addViralCoins } = useAuth()
+  const { user, profile, signIn, signUp, signOut, addViralCoins } = useAuth()
 
   const [skin, setSkin] = useState<BallSkin>('fire')
   const [score, setScore] = useState(0)
@@ -76,7 +76,8 @@ function GamePage() {
     }
 
     const trackNumber = Math.floor(Math.random() * 15) + 1;
-    audioRef.current.src = `/music/tier${trackNumber}.MP3`;
+    // Using relative path ./ for better compatibility across platforms
+    audioRef.current.src = `./music/tier${trackNumber}.MP3`;
     audioRef.current.load();
 
     if (gameState === 'PLAYING' || gameState === 'HOME') {
