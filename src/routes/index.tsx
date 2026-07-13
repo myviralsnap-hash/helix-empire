@@ -27,6 +27,9 @@ function GamePage() {
   const [activeTab, setActiveTab] = useState<'play' | 'inventory' | 'store' | 'event'>('play')
   const [isAdLoading, setIsAdLoading] = useState(false)
 
+  // Local points state for smooth UI updates
+  const [localJP, setLocalJP] = useState(0)
+
   // Auth form states
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -45,6 +48,11 @@ function GamePage() {
     }
   }, [isNative])
 
+  // Sync local JP with profile when it loads
+  useEffect(() => {
+    if (profile) setLocalJP(Number(profile.jump_balance))
+  }, [profile])
+
   useEffect(() => {
     if (!containerRef.current) return
 
@@ -52,10 +60,11 @@ function GamePage() {
       score: 0,
       level: level,
       isGameOver: false,
-      onWin: () => {
+      onWin: async () => {
         setGameState('WIN')
-        // Batch update points on win to prevent stuttering
-        if (user) addJumpPoints(100 + (level * 10));
+        const winBonus = 100 + (level * 10);
+        setLocalJP(prev => prev + winBonus);
+        if (user) await addJumpPoints(winBonus);
         toast.success("STAGE CLEAR!")
       },
       onLoss: () => {
@@ -64,7 +73,7 @@ function GamePage() {
       },
       onScoreUpdate: (pts) => {
           setScore(prev => prev + pts);
-          // Removed addJumpPoints here to prevent stuttering during animation
+          setLocalJP(prev => prev + pts); // Update UI instantly
       }
     })
 
@@ -72,13 +81,16 @@ function GamePage() {
     return () => engine.dispose()
   }, [])
 
-  // Music System - Fixed Overlap
+  // Music System - Fixed Overlap using a single persistent reference
   useEffect(() => {
-    if (!audioRef.current) {
+    // Stop and cleanup any existing audio before starting new
+    if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+        audioRef.current.load();
+    } else {
         audioRef.current = new Audio();
         audioRef.current.loop = true;
-    } else {
-        audioRef.current.pause(); // Stop previous before starting new
     }
 
     const trackNumber = Math.floor(Math.random() * 15) + 1;
@@ -87,6 +99,14 @@ function GamePage() {
 
     if (gameState === 'PLAYING' || gameState === 'HOME') {
         audioRef.current.play().catch(() => {});
+    }
+
+    // Cleanup on unmount
+    return () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.src = "";
+        }
     }
   }, [level])
 
@@ -97,6 +117,8 @@ function GamePage() {
         audioRef.current.volume = 1.0;
     } else if (gameState === 'HOME') {
         audioRef.current.volume = 0.3;
+    } else {
+        audioRef.current.volume = 0.1; // Lower volume for menus/death
     }
   }, [gameState])
 
@@ -210,7 +232,7 @@ function GamePage() {
           <div className="bg-black/60 backdrop-blur-xl border-2 border-white/10 rounded-2xl px-4 py-2 flex items-center gap-3 shadow-2xl text-right pointer-events-auto">
             <div className="flex flex-col text-right">
               <span className="text-[10px] uppercase font-black tracking-widest text-white/50 leading-none">Progress</span>
-              <span className="text-sm font-black leading-none text-green-400">{(profile?.jump_balance || 0).toLocaleString()} JP</span>
+              <span className="text-sm font-black leading-none text-green-400">{localJP.toLocaleString()} JP</span>
             </div>
             <Award className="h-4 w-4 text-green-400" />
           </div>
@@ -310,7 +332,7 @@ function GamePage() {
       {/* NAVIGATION BAR */}
       <GameUI
         viralCoins={profile?.coin_balance || 0}
-        jumpPoints={profile?.jump_balance || 0}
+        jumpPoints={localJP}
         currentSkin={skin}
         onSkinSelect={(s) => {setSkin(s); engineRef.current?.setSkin(s)}}
         isHidden={gameState === 'PLAYING' && activeTab === 'play'}

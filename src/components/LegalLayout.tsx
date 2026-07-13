@@ -10,8 +10,8 @@ interface Props {
 
 export function LegalLayout({ title, children, updated }: Props) {
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-primary selection:text-white pb-20">
-      <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/10 p-6">
+    <div className="h-screen bg-black text-white font-sans selection:bg-primary selection:text-white flex flex-col">
+      <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/10 p-6 flex-shrink-0">
         <div className="max-w-3xl mx-auto flex items-center gap-4">
           <Link to="/" className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <ArrowLeft className="h-6 w-6" />
@@ -20,8 +20,8 @@ export function LegalLayout({ title, children, updated }: Props) {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto p-6 md:p-12 prose prose-invert prose-orange">
-        <div className="bg-white/5 border-2 border-white/10 p-8 rounded-[40px] shadow-2xl">
+      <main className="flex-1 overflow-y-auto p-6 md:p-12 prose prose-invert prose-orange pb-32">
+        <div className="max-w-3xl mx-auto bg-white/5 border-2 border-white/10 p-8 rounded-[40px] shadow-2xl">
           <div className="mb-8">
             <h2 className="text-4xl font-black italic uppercase tracking-tighter mb-2 leading-none">{title}</h2>
             {updated && <p className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">Last Updated: {updated}</p>}
@@ -30,11 +30,11 @@ export function LegalLayout({ title, children, updated }: Props) {
             {children}
           </div>
         </div>
-      </main>
 
-      <footer className="max-w-3xl mx-auto px-6 text-center">
-        <p className="text-[8px] font-bold text-white/20 uppercase tracking-[0.4em]">Helix Empire is a property of TomaAI Network</p>
-      </footer>
+        <footer className="max-w-3xl mx-auto px-6 py-12 text-center">
+            <p className="text-[8px] font-bold text-white/20 uppercase tracking-[0.4em]">Helix Empire is a property of TomaAI Network</p>
+        </footer>
+      </main>
     </div>
   );
 }
