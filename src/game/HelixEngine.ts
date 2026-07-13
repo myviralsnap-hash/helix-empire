@@ -98,31 +98,30 @@ export class HelixEngine {
 
   public setSkin(skin: BallSkin) {
     this.ball.material = this.getSkinMaterial(skin);
+    this.ball.userData.skinType = skin;
   }
 
   private getSkinMaterial(skin: BallSkin): THREE.Material {
     switch (skin) {
       case 'gold': return new THREE.MeshPhysicalMaterial({
-          color: 0xffd700, metalness: 1, roughness: 0.1,
-          emissive: 0xffaa00, emissiveIntensity: 0.8,
-          clearcoat: 1.0, clearcoatRoughness: 0.1
+          color: 0xffd700, metalness: 1, roughness: 0.05,
+          emissive: 0xffaa00, emissiveIntensity: 0.5,
+          clearcoat: 1.0
       });
       case 'glass': return new THREE.MeshPhysicalMaterial({
-          color: 0xffffff, transparent: true, opacity: 0.2,
+          color: 0xffffff, transparent: true, opacity: 0.4,
           transmission: 1.0, thickness: 2.0, roughness: 0,
-          ior: 1.5, reflectivity: 1.0
+          ior: 1.5
       });
       case 'fire': return new THREE.MeshStandardMaterial({
           color: 0xff4500, emissive: 0xff1100, emissiveIntensity: 2.0
       });
       case 'yellow': return new THREE.MeshStandardMaterial({
-          color: 0xffeb3b, roughness: 0, metalness: 0.5,
-          flatShading: true
+          color: 0xffeb3b, roughness: 0.1, metalness: 0.5
       });
       case 'crown': return new THREE.MeshPhysicalMaterial({
           color: 0xffffff, metalness: 1.0, roughness: 0.2,
-          emissive: 0x999999, emissiveIntensity: 0.5,
-          sheen: 1.0, sheenColor: 0x00ffff
+          emissive: 0xff00ff, emissiveIntensity: 0.5
       });
       default: return new THREE.MeshStandardMaterial({ color: 0xff4500 });
     }
@@ -221,7 +220,34 @@ export class HelixEngine {
 
   private animate = () => {
     requestAnimationFrame(this.animate);
+    const time = performance.now() * 0.001; // Seconds
+
     if (this.autoRotate && !this.isRotating) this.tower.rotation.y += 0.006;
+
+    // DYNAMIC SKIN EFFECTS
+    if (this.ball && this.ball.material) {
+        const mat = this.ball.material as any;
+        const skinType = this.ball.userData.skinType;
+
+        if (skinType === 'fire') {
+            // Pulsing Heat
+            mat.emissiveIntensity = 2 + Math.sin(time * 10) * 2;
+        } else if (skinType === 'gold') {
+            // Rainbow Chrome
+            mat.color.setHSL((time * 0.2) % 1, 0.8, 0.5);
+            mat.emissive.setHSL((time * 0.2) % 1, 0.8, 0.2);
+        } else if (skinType === 'glass') {
+            // Ghost Pulse
+            mat.opacity = 0.2 + Math.abs(Math.sin(time * 3)) * 0.4;
+        } else if (skinType === 'yellow') {
+            // Party Strobe
+            mat.color.setHSL((time * 5) % 1, 1, 0.5);
+        } else if (skinType === 'crown') {
+            // Royal Aurora
+            mat.emissive.setHSL((time * 0.5) % 1, 0.5, 0.5);
+        }
+    }
+
     if (this.isPaused) {
       this.renderer.render(this.scene, this.camera);
       return;

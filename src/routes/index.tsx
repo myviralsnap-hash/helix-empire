@@ -23,7 +23,7 @@ function GamePage() {
   const [skin, setSkin] = useState<BallSkin>('fire')
   const [score, setScore] = useState(0)
   const [level, setLevel] = useState(1)
-  const [gameState, setGameState] = useState<'HOME' | 'PLAYING' | 'REVIVE' | 'WIN' | 'AUTH' | 'SHOP_DETAILS' | 'TOURNAMENT'>('HOME')
+  const [gameState, setGameState] = useState<'HOME' | 'PLAYING' | 'REVIVE' | 'WIN' | 'AUTH'>('HOME')
   const [activeTab, setActiveTab] = useState<'play' | 'inventory' | 'store' | 'event'>('play')
   const [isAdLoading, setIsAdLoading] = useState(false)
 
@@ -54,6 +54,8 @@ function GamePage() {
       isGameOver: false,
       onWin: () => {
         setGameState('WIN')
+        // Batch update points on win to prevent stuttering
+        if (user) addJumpPoints(100 + (level * 10));
         toast.success("STAGE CLEAR!")
       },
       onLoss: () => {
@@ -62,7 +64,7 @@ function GamePage() {
       },
       onScoreUpdate: (pts) => {
           setScore(prev => prev + pts);
-          if (user) addJumpPoints(pts);
+          // Removed addJumpPoints here to prevent stuttering during animation
       }
     })
 
@@ -70,15 +72,16 @@ function GamePage() {
     return () => engine.dispose()
   }, [])
 
-  // Music System - Picks a new song every level and LOOPS it
+  // Music System - Fixed Overlap
   useEffect(() => {
     if (!audioRef.current) {
         audioRef.current = new Audio();
         audioRef.current.loop = true;
+    } else {
+        audioRef.current.pause(); // Stop previous before starting new
     }
 
     const trackNumber = Math.floor(Math.random() * 15) + 1;
-    // Using relative path ./ for better compatibility across platforms
     audioRef.current.src = `./music/tier${trackNumber}.MP3`;
     audioRef.current.load();
 
@@ -87,15 +90,13 @@ function GamePage() {
     }
   }, [level])
 
-  // Volume & Playback Control
+  // Volume Control
   useEffect(() => {
     if (!audioRef.current) return;
     if (gameState === 'PLAYING') {
         audioRef.current.volume = 1.0;
-        audioRef.current.play().catch(() => {});
     } else if (gameState === 'HOME') {
         audioRef.current.volume = 0.3;
-        audioRef.current.play().catch(() => {});
     }
   }, [gameState])
 
@@ -143,25 +144,17 @@ function GamePage() {
         engineRef.current.setAutoRotate(false);
         engineRef.current.revive()
     }
-    if (audioRef.current) {
-        audioRef.current.volume = 1.0;
-        audioRef.current.play().catch(() => {});
-    }
   }
 
   const nextLevel = async () => {
     if (isNative && level % 3 === 0) {
         AdMob.showInterstitial().catch(() => {});
     }
-    const bonus = 100 + (level * 10);
     const vcBonus = level % 5 === 0 ? 50 : 0;
 
-    if (user) {
-        await addJumpPoints(bonus);
-        if(vcBonus > 0) {
-            await addViralCoins(vcBonus)
-            toast.success(`EMPIRE BONUS: +${vcBonus} ViralCoins!`, { icon: '🔥' })
-        }
+    if (user && vcBonus > 0) {
+        await addViralCoins(vcBonus)
+        toast.success(`EMPIRE BONUS: +${vcBonus} ViralCoins!`, { icon: '🔥' })
     }
 
     if (engineRef.current) {
@@ -236,7 +229,7 @@ function GamePage() {
         {gameState === 'HOME' && activeTab === 'play' && (
             <div className="w-full h-full bg-black/20 backdrop-blur-[1px] flex flex-col items-center justify-between pt-24 pb-48 pointer-events-auto animate-in fade-in duration-700">
                 <div className="flex flex-col items-center pt-8">
-                    <h1 className="text-[15vw] sm:text-8xl font-black italic text-white leading-none tracking-tighter drop-shadow-2xl text-center leading-none">
+                    <h1 className="text-[15vw] sm:text-8xl font-black italic text-white leading-none tracking-tighter drop-shadow-2xl text-center">
                         HELIX<br /><span className="text-primary italic text-[18vw] sm:text-9xl">EMPIRE</span>
                     </h1>
                 </div>
@@ -250,7 +243,7 @@ function GamePage() {
                         </button>
                     )}
                     <div className="flex flex-col items-center gap-1 mt-4">
-                        <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Empire Network v6.6</p>
+                        <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Empire Network v6.7</p>
                         <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 px-4 text-center">
                             <Link to="/about" className="text-white/30 text-[8px] font-bold uppercase tracking-widest hover:text-white">About</Link>
                             <Link to="/terms" className="text-white/30 text-[8px] font-bold uppercase tracking-widest hover:text-white underline">Terms</Link>
@@ -259,46 +252,6 @@ function GamePage() {
                     </div>
                 </div>
             </div>
-        )}
-
-        {/* SHOP MODAL */}
-        {(gameState === 'SHOP_DETAILS' || activeTab === 'store') && (
-             <div className="w-full h-full bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 pointer-events-auto animate-in slide-in-from-bottom-10 z-[600]">
-                <button onClick={() => { setGameState('HOME'); setActiveTab('play'); }} className="absolute top-12 right-8 text-white/40 p-2 hover:text-white transition-colors"><X className="h-10 w-10" /></button>
-                <div className="w-full max-w-sm space-y-10 text-center">
-                    <div className="h-32 w-32 bg-blue-600/20 rounded-[40px] flex items-center justify-center mx-auto ring-4 ring-blue-600/40">
-                        <Diamond className="h-16 w-16 text-blue-400" />
-                    </div>
-                    <h2 className="text-5xl font-black italic text-white uppercase tracking-tighter leading-none">Empire Pack</h2>
-                    <p className="text-xs font-bold text-white/60 uppercase tracking-widest px-4">Ad-Free Gaming + Pro status in all Empire Network apps.</p>
-                    <button onClick={() => toast.info("Google Play Billing starting...")} className="w-full bg-white text-black py-6 rounded-3xl font-black uppercase text-xl shadow-2xl active:scale-95 transition-all">SUBSCRIBE NOW</button>
-                    <div className="bg-white/5 border-2 border-white/10 p-6 rounded-[40px] flex justify-between items-center mt-4">
-                        <div className="flex items-center gap-4 text-left">
-                            <div className="h-12 w-12 bg-yellow-400/20 rounded-2xl flex items-center justify-center">
-                                <Coins className="h-6 w-6 text-yellow-400" />
-                            </div>
-                            <span className="font-black uppercase tracking-tighter leading-none text-lg">1,000 VC</span>
-                        </div>
-                        <div className="bg-primary px-6 py-3 rounded-2xl font-black text-xs shadow-glow">$4.99</div>
-                    </div>
-                </div>
-             </div>
-        )}
-
-        {/* TOURNAMENT MODAL */}
-        {(gameState === 'TOURNAMENT' || activeTab === 'event') && (
-             <div className="w-full h-full bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 pointer-events-auto animate-in zoom-in-95 z-[600]">
-                <button onClick={() => { setGameState('HOME'); setActiveTab('play'); }} className="absolute top-12 right-8 text-white/40 p-2 hover:text-white transition-colors"><X className="h-10 w-10" /></button>
-                <div className="w-full max-w-sm space-y-8 text-center">
-                    <Trophy className="h-32 w-32 text-yellow-400 mx-auto animate-bounce" />
-                    <h2 className="text-5xl font-black italic text-white uppercase tracking-tighter leading-none">Tournament</h2>
-                    <div className="bg-white/5 border-2 border-white/10 p-6 rounded-[40px] space-y-2">
-                        <p className="text-[10px] font-black uppercase text-white/40 leading-none">Prize Pool</p>
-                        <p className="text-4xl font-black text-yellow-400 tracking-tighter leading-none">5,000 VC</p>
-                    </div>
-                    <button onClick={() => toast.success("Entered Tournament!")} className="w-full bg-primary py-6 rounded-3xl font-black uppercase text-xl shadow-glow active:scale-95 transition-all">JOIN EVENT</button>
-                </div>
-             </div>
         )}
 
         {gameState === 'AUTH' && (
@@ -362,8 +315,6 @@ function GamePage() {
         onSkinSelect={(s) => {setSkin(s); engineRef.current?.setSkin(s)}}
         isHidden={gameState === 'PLAYING' && activeTab === 'play'}
         onTabChange={(t) => { setActiveTab(t); if(t !== 'play') setGameState('HOME'); }}
-        onOpenShop={() => setGameState('SHOP_DETAILS')}
-        onOpenEvent={() => setGameState('TOURNAMENT')}
         requestPayout={requestPayout}
       />
     </div>

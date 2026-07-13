@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Home, ShoppingBag, Award, Box, Coins, Check, LogOut, Zap, Trophy, Flame, Star, ShieldCheck, Gift, ArrowRight, X, CreditCard } from 'lucide-react';
+import { useState } from 'react';
+import { Home, ShoppingBag, Award, Box, Coins, Check, LogOut, Trophy, Gift, X, Diamond } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -8,26 +8,23 @@ import { Link } from '@tanstack/react-router';
 type Tab = 'play' | 'inventory' | 'store' | 'event';
 
 const SKINS = [
-  { id: 'fire', name: 'Viral Spark', emoji: '🔥', price: 0, type: 'viralcoins' },
-  { id: 'gold', name: 'Liquid Gold', emoji: '📀', price: 0, type: 'viralcoins' },
-  { id: 'glass', name: 'Neon Phantom', emoji: '🔮', price: 0, type: 'viralcoins' },
-  { id: 'yellow', name: 'TomaBox', emoji: '🛍️', price: 0, type: 'jumppoints' },
-  { id: 'crown', name: 'Grand Crown', emoji: '👑', price: 0, type: 'viralcoins' },
+  { id: 'fire', name: 'Viral Spark', emoji: '🔥', price: 0 },
+  { id: 'gold', name: 'Liquid Gold', emoji: '📀', price: 0 },
+  { id: 'glass', name: 'Neon Phantom', emoji: '🔮', price: 0 },
+  { id: 'yellow', name: 'TomaBox', emoji: '🛍️', price: 0 },
+  { id: 'crown', name: 'Grand Crown', emoji: '👑', price: 0 },
 ];
 
-export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', onSkinSelect, isHidden = false, onTabChange, onOpenShop, onOpenEvent, requestPayout }) {
+export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', onSkinSelect, isHidden = false, onTabChange, requestPayout }) {
   const [activeTab, setActiveTab] = useState<Tab>('play');
-  const [ownedSkins, setOwnedSkins] = useState(['fire', 'gold', 'glass', 'yellow', 'crown']);
   const [showRedeem, setShowRedeem] = useState(false);
+  const [showShopDetail, setShowShopDetail] = useState(false);
+  const [showEventDetail, setShowEventDetail] = useState(false);
   const { user, signOut } = useAuth();
 
   const handleTab = (tab: Tab) => {
     setActiveTab(tab);
     if (onTabChange) onTabChange(tab);
-  };
-
-  const buySkin = (skin) => {
-    onSkinSelect(skin.id);
   };
 
   return (
@@ -42,13 +39,13 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
         {activeTab === 'inventory' && (
           <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4">
             <div className="text-center">
-                <h2 className="text-5xl font-black italic tracking-tighter uppercase text-gradient-fire leading-none">Inventory</h2>
+                <h2 className="text-5xl font-black italic tracking-tighter uppercase leading-none">Inventory</h2>
             </div>
             <div className="grid grid-cols-2 gap-4 pb-20">
               {SKINS.map(skin => (
                     <button
                         key={skin.id}
-                        onClick={() => buySkin(skin)}
+                        onClick={() => onSkinSelect(skin.id)}
                         className={cn(
                             "p-6 rounded-[32px] border-4 transition-all active:scale-95 flex flex-col items-center gap-3 relative overflow-hidden group",
                             currentSkin === skin.id ? "border-primary bg-primary/20 shadow-glow" : "border-white/10 bg-white/5"
@@ -72,11 +69,10 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
         {activeTab === 'store' && (
           <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4">
              <div className="text-center">
-                <h2 className="text-5xl font-black italic tracking-tighter uppercase text-gradient-gold leading-none">Empire Shop</h2>
-                <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em] mt-2 italic">Official Premium Store</p>
+                <h2 className="text-5xl font-black italic tracking-tighter uppercase leading-none text-yellow-400">Empire Shop</h2>
             </div>
             <div className="space-y-4">
-                <button onClick={onOpenShop} className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-[40px] border-b-8 border-black/30 flex justify-between items-center shadow-xl active:scale-95 transition-all">
+                <button onClick={() => setShowShopDetail(true)} className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-[40px] border-b-8 border-black/30 flex justify-between items-center shadow-xl active:scale-95 transition-all">
                     <div className="flex items-center gap-4">
                         <div className="h-14 w-14 bg-white/10 rounded-2xl flex items-center justify-center text-3xl">💎</div>
                         <div className="flex flex-col text-left">
@@ -87,7 +83,7 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
                     <div className="bg-white text-blue-700 px-6 py-3 rounded-2xl font-black text-xs shadow-lg">UPGRADE</div>
                 </button>
 
-                <button onClick={onOpenShop} className="w-full bg-white/5 border-2 border-white/10 p-6 rounded-[40px] flex justify-between items-center active:scale-95 transition-all">
+                <button onClick={() => setShowShopDetail(true)} className="w-full bg-white/5 border-2 border-white/10 p-6 rounded-[40px] flex justify-between items-center active:scale-95 transition-all">
                     <div className="flex items-center gap-4 text-left">
                         <div className="h-12 w-12 bg-yellow-400/20 rounded-2xl flex items-center justify-center">
                             <Coins className="h-6 w-6 text-yellow-400" />
@@ -120,37 +116,64 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
                 <Trophy className="h-20 w-20 text-yellow-400 mx-auto mb-4" />
                 <h3 className="text-2xl font-black uppercase italic tracking-tighter">Grand Masters</h3>
                 <p className="text-xs font-bold opacity-60 uppercase tracking-widest mb-8">Reach Stage 100 to win 5,000 ViralCoins</p>
-                <button onClick={onOpenEvent} className="w-full bg-white text-indigo-900 py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-transform">ENTER EVENT</button>
+                <button onClick={() => setShowEventDetail(true)} className="w-full bg-white text-indigo-900 py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-transform">ENTER EVENT</button>
             </div>
           </div>
         )}
       </main>
 
-      {/* REDEMPTION OVERLAY */}
+      {/* OVERLAY: REDEMPTION */}
       {showRedeem && (
-        <div className="fixed inset-0 z-[600] bg-black/98 backdrop-blur-2xl flex flex-col items-center justify-center p-8 pointer-events-auto animate-in zoom-in-95">
+        <div className="fixed inset-0 z-[2000] bg-black/98 backdrop-blur-2xl flex flex-col items-center justify-center p-8 pointer-events-auto animate-in zoom-in-95">
             <button onClick={() => setShowRedeem(false)} className="absolute top-12 right-8 text-white/40 p-2 hover:text-white"><X className="h-10 w-10" /></button>
             <div className="w-full max-w-sm space-y-8">
                 <div className="text-center space-y-2">
                     <h2 className="text-5xl font-black italic tracking-tighter uppercase leading-none">Redeem JP</h2>
                     <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Available: <span className="text-green-400">{jumpPoints.toLocaleString()} JP</span></p>
                 </div>
-
                 <div className="space-y-4">
                     <PayoutOption icon="💳" name="PayPal Cashout" req="500,000 JP" current={jumpPoints} val="$5.00" onClaim={() => requestPayout('PayPal $5', 500000)} />
                     <PayoutOption icon="🛒" name="Amazon Gift Card" req="250,000 JP" current={jumpPoints} val="$2.00" onClaim={() => requestPayout('Amazon $2', 250000)} />
                     <PayoutOption icon="📱" name="Google Play" req="250,000 JP" current={jumpPoints} val="$2.00" onClaim={() => requestPayout('Google Play $2', 250000)} />
                     <PayoutOption icon="🍎" name="Apple Gift Card" req="500,000 JP" current={jumpPoints} val="$5.00" onClaim={() => requestPayout('Apple $5', 500000)} />
                 </div>
-
-                <div className="pt-4">
-                    <Link to="/how-to-redeem" className="text-center block w-full text-[10px] font-black uppercase tracking-widest text-primary underline">How it works & Rules</Link>
-                </div>
+                <Link to="/how-to-redeem" onClick={() => setShowRedeem(false)} className="text-center block w-full text-[10px] font-black uppercase tracking-widest text-primary underline">How it works & Rules</Link>
             </div>
         </div>
       )}
 
-      {/* Bottom Navigation - Now a "Ghost Menu" during play */}
+      {/* OVERLAY: SHOP DETAIL */}
+      {showShopDetail && (
+        <div className="fixed inset-0 z-[2000] bg-black/98 backdrop-blur-2xl flex flex-col items-center justify-center p-8 pointer-events-auto animate-in slide-in-from-bottom-10">
+            <button onClick={() => setShowShopDetail(false)} className="absolute top-12 right-8 text-white/40 p-2 hover:text-white"><X className="h-10 w-10" /></button>
+            <div className="w-full max-w-sm space-y-10 text-center">
+                <div className="h-32 w-32 bg-blue-600/20 rounded-[40px] flex items-center justify-center mx-auto ring-4 ring-blue-600/40">
+                    <Diamond className="h-16 w-16 text-blue-400" />
+                </div>
+                <h2 className="text-5xl font-black italic text-white uppercase tracking-tighter leading-none">Empire Pack</h2>
+                <p className="text-xs font-bold text-white/60 uppercase tracking-widest px-4">Ad-Free Gaming + Pro status in all Empire Network apps.</p>
+                <button onClick={() => toast.info("Google Play Billing starting...")} className="w-full bg-white text-black py-6 rounded-3xl font-black uppercase text-xl shadow-2xl active:scale-95 transition-all">SUBSCRIBE NOW</button>
+            </div>
+        </div>
+      )}
+
+      {/* OVERLAY: EVENT DETAIL */}
+      {showEventDetail && (
+        <div className="fixed inset-0 z-[2000] bg-black/98 backdrop-blur-2xl flex flex-col items-center justify-center p-8 pointer-events-auto animate-in zoom-in-95">
+            <button onClick={() => setShowEventDetail(false)} className="absolute top-12 right-8 text-white/40 p-2 hover:text-white"><X className="h-10 w-10" /></button>
+            <div className="w-full max-w-sm space-y-8 text-center">
+                <Trophy className="h-32 w-32 text-yellow-400 mx-auto animate-bounce" />
+                <h2 className="text-5xl font-black italic text-white uppercase tracking-tighter leading-none">Tournament</h2>
+                <div className="bg-white/5 border-2 border-white/10 p-6 rounded-[40px] space-y-2">
+                    <p className="text-[10px] font-black uppercase text-white/40 leading-none">Prize Pool</p>
+                    <p className="text-4xl font-black text-yellow-400 tracking-tighter leading-none">5,000 VC</p>
+                </div>
+                <button onClick={() => toast.success("Entered Tournament!")} className="w-full bg-primary py-6 rounded-3xl font-black uppercase text-xl shadow-glow active:scale-95 transition-all">JOIN EVENT</button>
+            </div>
+        </div>
+      )}
+
+      {/* Bottom Navigation */}
       <nav className={cn(
         "p-6 pb-12 flex justify-center pointer-events-auto transition-all duration-700",
         isHidden && activeTab === 'play' ? "opacity-20 scale-90 pointer-events-none" : "opacity-100 scale-100"
