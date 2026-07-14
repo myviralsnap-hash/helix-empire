@@ -59,6 +59,7 @@ export class HelixEngine {
 
     const ballGeo = new THREE.SphereGeometry(0.45, 32, 32);
     this.ball = new THREE.Mesh(ballGeo, this.getSkinMaterial('fire'));
+    this.ball.userData.skinType = 'fire'; // CRITICAL: Initialize skin type
     this.ball.position.set(0, 8.5, 5.5);
     this.scene.add(this.ball);
 
