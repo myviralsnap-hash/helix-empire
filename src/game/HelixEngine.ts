@@ -30,7 +30,6 @@ export class HelixEngine {
   public autoRotate = true;
   public isPaused = true;
   private lastHitPlatform: THREE.Object3D | null = null;
-  private fallStreak = 0;
 
   constructor(container: HTMLDivElement, state: GameState) {
     this.state = state;
@@ -38,8 +37,7 @@ export class HelixEngine {
     this.scene = new THREE.Scene();
 
     this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    this.camera.position.set(0, 10, 16);
-    this.camera.lookAt(0, 5, 0);
+    this.camera.position.set(0, 15, 20);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -61,7 +59,7 @@ export class HelixEngine {
     this.scene.add(this.tower);
 
     const cylinderGeo = new THREE.CylinderGeometry(1.5, 1.5, 800, 32);
-    const cylinderMat = new THREE.MeshStandardMaterial({ color: 0x443300 });
+    const cylinderMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
     const column = new THREE.Mesh(cylinderGeo, cylinderMat);
     this.tower.add(column);
 
@@ -71,15 +69,16 @@ export class HelixEngine {
   }
 
   public setPaused(val: boolean) {
+    console.log("Setting paused to:", val);
     this.isPaused = val;
     if (!val) {
         this.autoRotate = false;
-        // Kickstart the ball if it's dead still
-        if (this.ballVelocity === 0) this.ballVelocity = -0.01;
+        this.ballVelocity = -0.05; // Force initial drop
     }
   }
 
   public setupLevel(level: number) {
+    // Clear old platforms
     const toRemove = this.tower.children.filter(c => c.userData.isLevelObject);
     toRemove.forEach(c => this.tower.remove(c));
 
@@ -117,7 +116,7 @@ export class HelixEngine {
   private setupInputs() {
     const handleMove = (x: number) => {
         if (!this.isRotating) return;
-        this.tower.rotation.y += (x - this.previousMouseX) * 0.02;
+        this.tower.rotation.y += (x - this.previousMouseX) * 0.015;
         this.previousMouseX = x;
     };
     window.addEventListener('mousedown', e => { this.isRotating = true; this.previousMouseX = e.clientX; });
@@ -130,26 +129,45 @@ export class HelixEngine {
 
   private animate = () => {
     requestAnimationFrame(this.animate);
-    if (this.autoRotate) this.tower.rotation.y += 0.01;
+
+    if (this.autoRotate) {
+        this.tower.rotation.y += 0.005;
+    }
 
     if (!this.isPaused) {
         this.ballVelocity += this.gravity;
         this.ball.position.y += this.ballVelocity;
+
+        // Update Camera to follow ball
         this.camera.position.y = this.ball.position.y + 8;
+        this.camera.lookAt(0, this.ball.position.y, 0);
+
         this.checkCollisions();
+    } else {
+        this.camera.lookAt(0, 5, 0);
     }
+
     this.renderer.render(this.scene, this.camera);
   }
 
   private checkCollisions() {
     if (this.ballVelocity > 0) return;
+
     this.raycaster.set(this.ball.position, new THREE.Vector3(0, -1, 0));
     const hits = this.raycaster.intersectObjects(this.tower.children, true);
 
-    if (hits.length > 0 && hits[0].distance < 0.5) {
+    if (hits.length > 0 && hits[0].distance < 0.45) {
         const obj = hits[0].object;
-        if (obj.userData.isWinPlatform) return this.state.onWin();
-        if (obj.userData.isHazard) return this.state.onLoss();
+        if (obj.userData.isWinPlatform) {
+            this.isPaused = true;
+            this.state.onWin();
+            return;
+        }
+        if (obj.userData.isHazard) {
+            this.isPaused = true;
+            this.state.onLoss();
+            return;
+        }
 
         this.ballVelocity = this.jumpForce;
         if (this.lastHitPlatform !== obj.parent) {
@@ -166,6 +184,6 @@ export class HelixEngine {
     this.autoRotate = true;
   }
 
-  public setSkin(skin: BallSkin) { /* skin logic */ }
+  public setSkin(skin: BallSkin) { /* skin logic here */ }
   public dispose() { this.renderer.dispose(); }
 }
