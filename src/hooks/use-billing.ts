@@ -21,6 +21,7 @@ export function useBilling(addViralCoins: (n: number) => void) {
 
     try {
         // 2. Register Products (New v13+ Syntax)
+        // We use the same IDs as in Google Play Console
         store.register([
           {
             id: PRODUCT_EMPIRE_PACK,
@@ -36,12 +37,12 @@ export function useBilling(addViralCoins: (n: number) => void) {
 
         // 3. Handle Approvals (What happens when they pay)
         store.when().approved((transaction: any) => {
+            console.log("Transaction approved:", transaction);
             if (transaction.productId === PRODUCT_COINS_1000) {
                 toast.success("1,000 ViralCoins added!");
                 addViralCoins(1000);
             } else if (transaction.productId === PRODUCT_EMPIRE_PACK) {
                 toast.success("Empire Pack Activated!");
-                // Here you would typically set a 'no_ads' flag in your database
             }
             transaction.verify();
             transaction.finish();
@@ -50,7 +51,6 @@ export function useBilling(addViralCoins: (n: number) => void) {
         // Handle Errors
         store.error((error: any) => {
           console.error('Store Error: ', error);
-          // Only show toast for actual errors, not cancellations
           if (error.code !== 6) { // 6 is user cancelled
             toast.error("Billing error: " + error.message);
           }
@@ -59,7 +59,11 @@ export function useBilling(addViralCoins: (n: number) => void) {
         // 4. Initialize the store
         store.initialize([CdvPurchase.Platform.GOOGLE_PLAY]);
 
-        setIsReady(true);
+        store.ready(() => {
+            console.log("Store is ready. Products:", store.products);
+            setIsReady(true);
+        });
+
     } catch (err) {
         console.error("Failed to initialize store:", err);
     }
@@ -73,13 +77,16 @@ export function useBilling(addViralCoins: (n: number) => void) {
     }
 
     const store = CdvPurchase.store;
-    const product = store.get(productId);
+    // Try to find the product by ID
+    const product = store.get(productId, CdvPurchase.Platform.GOOGLE_PLAY);
 
     if (product) {
+        console.log("Ordering product:", product);
         toast.info("Opening Google Play...");
         store.order(product);
     } else {
-        toast.error("Product not found. Make sure it is 'Active' in Google Play Console.");
+        console.error("Product not found in store. Registered products:", store.products);
+        toast.error("Product not found. Please wait for store to sync or check Play Console.");
     }
   };
 

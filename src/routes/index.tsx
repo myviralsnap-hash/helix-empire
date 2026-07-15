@@ -14,11 +14,13 @@ export const Route = createFileRoute('/')({
   component: GamePage,
 })
 
+const MUSIC_URL = 'https://bukkaketokens.com/wp-content/uploads/2025/02/cyberpunk-street.mp3';
+
 function GamePage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<HelixEngine | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const { user, profile, signIn, signUp, signOut, addViralCoins, addJumpPoints, requestPayout } = useAuth()
+  const { user, profile, signIn, signUp, signOut, addViralCoins, addJumpPoints, requestPayout, refreshProfile } = useAuth()
 
   const [skin, setSkin] = useState<BallSkin>('fire')
   const [score, setScore] = useState(0)
@@ -39,6 +41,27 @@ function GamePage() {
     scoreRef.current = score
   }, [score])
 
+  // Handle Audio
+  useEffect(() => {
+    const audio = new Audio(MUSIC_URL);
+    audio.loop = true;
+    audio.volume = 0.5;
+    audioRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+    };
+  }, []);
+
+  useEffect(() => {
+    if (gameState === 'PLAYING') {
+      audioRef.current?.play().catch(e => console.log("Audio play failed:", e));
+    } else {
+      audioRef.current?.pause();
+    }
+  }, [gameState]);
+
   useEffect(() => {
     if (!containerRef.current) return
     const engine = new HelixEngine(containerRef.current, {
@@ -50,12 +73,18 @@ function GamePage() {
         const winBonus = 100 + (level * 10)
         const totalToSave = scoreRef.current + winBonus
         setLocalJP(prev => prev + winBonus)
-        if (user) await addJumpPoints(totalToSave)
+        if (user) {
+            await addJumpPoints(totalToSave)
+            if (refreshProfile) await refreshProfile()
+        }
         toast.success("STAGE CLEAR!")
       },
       onLoss: async () => {
         setGameState('REVIVE')
-        if (user && scoreRef.current > 0) await addJumpPoints(scoreRef.current)
+        if (user && scoreRef.current > 0) {
+            await addJumpPoints(scoreRef.current)
+            if (refreshProfile) await refreshProfile()
+        }
       },
       onScoreUpdate: (pts) => {
           setScore(prev => prev + pts)
@@ -64,19 +93,23 @@ function GamePage() {
     })
     engineRef.current = engine
     return () => engine.dispose()
-  }, [user])
+  }, [user, level]) // Re-create engine on level change to ensure fresh start
 
   const startGame = () => {
+    console.log("Starting game...");
     setScore(0)
     scoreRef.current = 0
     setGameState('PLAYING')
     setActiveTab('play')
-    // Reset and start immediately
-    if (engineRef.current) {
-        engineRef.current.resetToStart()
-        engineRef.current.setPaused(false)
-        engineRef.current.revive()
-    }
+
+    // Give DOM/ThreeJS time to breathe
+    setTimeout(() => {
+        if (engineRef.current) {
+            engineRef.current.resetToStart()
+            engineRef.current.setPaused(false)
+            console.log("Engine unpaused");
+        }
+    }, 100);
   }
 
   const nextLevel = () => {
@@ -85,12 +118,14 @@ function GamePage() {
     scoreRef.current = 0
     setGameState('PLAYING')
     setActiveTab('play')
-    if (engineRef.current) {
-        engineRef.current.setupLevel(level + 1)
-        engineRef.current.resetToStart()
-        engineRef.current.setPaused(false)
-        engineRef.current.revive()
-    }
+
+    setTimeout(() => {
+        if (engineRef.current) {
+            engineRef.current.setupLevel(level + 1)
+            engineRef.current.resetToStart()
+            engineRef.current.setPaused(false)
+        }
+    }, 100);
   }
 
   return (

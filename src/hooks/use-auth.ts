@@ -88,5 +88,9 @@ export function useAuth() {
     toast.success("Signed out successfully");
   }
 
-  return { user, profile, loading, signIn, signUp, addViralCoins, addJumpPoints, requestPayout, signOut };
+  async function refreshProfile() {
+    if (user) await fetchProfile(user.id);
+  }
+
+  return { user, profile, loading, signIn, signUp, addViralCoins, addJumpPoints, requestPayout, signOut, refreshProfile, supabase };
 }

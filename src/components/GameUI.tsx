@@ -31,21 +31,31 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
   };
 
   const fetchLeaderboard = async () => {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('username, jump_balance')
-        .order('jump_balance', { ascending: false })
-        .limit(10);
+    console.log("Fetching leaderboard...");
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('username, jump_balance')
+            .order('jump_balance', { ascending: false })
+            .limit(10);
 
-    if (data) {
-        setLeaderboard(data.map(d => ({
-            username: d.username || 'Anonymous Player',
-            score: Number(d.jump_balance)
-        })));
+        if (error) {
+            console.error("Error fetching leaderboard:", error);
+            return;
+        }
+
+        if (data) {
+            console.log("Leaderboard data received:", data);
+            setLeaderboard(data.map(d => ({
+                username: d.username || 'Anonymous Player',
+                score: Number(d.jump_balance || 0)
+            })));
+        }
+    } catch (err) {
+        console.error("Exception in fetchLeaderboard:", err);
     }
   };
 
-  // Load leaderboard when the event tab is active
   useEffect(() => {
     if (activeTab === 'event') {
         fetchLeaderboard();
@@ -109,9 +119,9 @@ export function GameUI({ viralCoins = 0, jumpPoints = 0, currentSkin = 'fire', o
                             <span className="text-[10px] font-black">{i+1}. {entry.username}</span>
                             <span className="text-[10px] font-bold text-yellow-400">{entry.score.toLocaleString()} JP</span>
                         </div>
-                    )) : <p className="text-[10px] opacity-40">Loading Masters...</p>}
+                    )) : <p className="text-[10px] opacity-40 py-4">Loading Masters...</p>}
                 </div>
-                <button onClick={() => toast.success("You are competing!")} className="w-full bg-primary py-5 rounded-3xl font-black uppercase tracking-widest mt-8">JOIN TOURNAMENT</button>
+                <button onClick={() => fetchLeaderboard()} className="w-full bg-primary py-5 rounded-3xl font-black uppercase tracking-widest mt-8">REFRESH</button>
             </div>
             {user && <button onClick={signOut} className="w-full flex items-center justify-center gap-3 bg-white/5 border-2 border-white/10 py-5 rounded-3xl mt-4"><LogOut className="h-4 w-4 text-white/40" /><span className="text-[10px] font-black uppercase tracking-widest text-white/60">Logout of Empire</span></button>}
           </div>
@@ -138,23 +148,4 @@ function NavButton({ icon: Icon, label, active, onClick }) {
       <span className={cn("text-[10px] font-black uppercase tracking-tighter", active ? "opacity-100" : "opacity-40")}>{label}</span>
     </button>
   );
-}
-
-function PayoutOption({ icon, name, req, current, val, onClaim }) {
-    const rawReq = parseInt(req.replace(/,/g, ''));
-    const isLocked = current < rawReq;
-    return (
-        <div className="bg-white/5 border-2 border-white/10 rounded-[35px] p-5 flex items-center justify-between group">
-            <div className="flex items-center gap-4">
-                <span className="text-3xl">{icon}</span>
-                <div className="flex flex-col">
-                    <span className="font-black uppercase tracking-tighter text-sm leading-none">{name}</span>
-                    <span className="text-[9px] font-bold opacity-40 uppercase mt-1">{req}</span>
-                </div>
-            </div>
-            <button onClick={() => isLocked ? toast.error(`You need ${req} for this reward.`) : onClaim()} className={cn("px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase", isLocked ? "bg-white/10 text-white/20" : "bg-green-500 text-white")}>
-                {isLocked ? 'Locked' : `Claim ${val}`}
-            </button>
-        </div>
-    )
 }
