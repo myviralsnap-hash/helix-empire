@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 
-export type BallSkin = 'fire' | 'gold' | 'glass' | 'yellow' | 'crown';
-
 export interface GameState {
   score: number;
   level: number;
@@ -44,11 +42,8 @@ export class HelixEngine {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(this.renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
     this.scene.add(ambientLight);
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    mainLight.position.set(5, 20, 10);
-    this.scene.add(mainLight);
 
     const ballGeo = new THREE.SphereGeometry(0.45, 32, 32);
     this.ball = new THREE.Mesh(ballGeo, new THREE.MeshStandardMaterial({ color: 0xff4500 }));
@@ -69,25 +64,22 @@ export class HelixEngine {
   }
 
   public setPaused(val: boolean) {
-    console.log("Setting paused to:", val);
     this.isPaused = val;
     if (!val) {
         this.autoRotate = false;
-        this.ballVelocity = -0.05; // Force initial drop
+        this.ballVelocity = -0.1; // Jumpstart
     }
   }
 
   public setupLevel(level: number) {
-    // Clear old platforms
     const toRemove = this.tower.children.filter(c => c.userData.isLevelObject);
     toRemove.forEach(c => this.tower.remove(c));
 
-    const colors = [0xbc13fe, 0xff007f, 0x0077ff, 0x00ffcc];
-    const color = colors[level % colors.length];
-
+    const color = [0xbc13fe, 0xff007f, 0x0077ff, 0x00ffcc][level % 4];
     for (let i = 0; i < 20; i++) {
         this.createPlatform(5 - (i * 6), color, i === 19, i === 0);
     }
+    this.resetToStart();
   }
 
   private createPlatform(y: number, color: number, isWin: boolean, isFirst: boolean) {
@@ -96,11 +88,10 @@ export class HelixEngine {
     platform.userData.isLevelObject = true;
 
     const segments = 12;
-    const gapSize = 2;
     const gapStart = Math.floor(Math.random() * segments);
 
     for (let i = 0; i < segments; i++) {
-      if (!isWin && i >= gapStart && i < gapStart + gapSize) continue;
+      if (!isWin && (i === gapStart || i === (gapStart + 1) % segments)) continue;
 
       const isHazard = !isWin && !isFirst && Math.random() > 0.8;
       const arc = (1 / segments) * Math.PI * 2;
@@ -114,61 +105,40 @@ export class HelixEngine {
   }
 
   private setupInputs() {
-    const handleMove = (x: number) => {
+    const move = (x: number) => {
         if (!this.isRotating) return;
-        this.tower.rotation.y += (x - this.previousMouseX) * 0.015;
+        this.tower.rotation.y += (x - this.previousMouseX) * 0.02;
         this.previousMouseX = x;
     };
     window.addEventListener('mousedown', e => { this.isRotating = true; this.previousMouseX = e.clientX; });
-    window.addEventListener('mousemove', e => handleMove(e.clientX));
+    window.addEventListener('mousemove', e => move(e.clientX));
     window.addEventListener('mouseup', () => this.isRotating = false);
-    window.addEventListener('touchstart', e => { this.isRotating = true; this.previousMouseX = e.touches[0].clientX; });
-    window.addEventListener('touchmove', e => handleMove(e.touches[0].clientX));
+    window.addEventListener('touchstart', e => { this.isRotating = true; this.previousMouseX = e.touches[0].clientX; }, { passive: false });
+    window.addEventListener('touchmove', e => move(e.touches[0].clientX), { passive: false });
     window.addEventListener('touchend', () => this.isRotating = false);
   }
 
   private animate = () => {
     requestAnimationFrame(this.animate);
-
-    if (this.autoRotate) {
-        this.tower.rotation.y += 0.005;
-    }
-
+    if (this.autoRotate) this.tower.rotation.y += 0.01;
     if (!this.isPaused) {
         this.ballVelocity += this.gravity;
         this.ball.position.y += this.ballVelocity;
-
-        // Update Camera to follow ball
         this.camera.position.y = this.ball.position.y + 8;
         this.camera.lookAt(0, this.ball.position.y, 0);
-
         this.checkCollisions();
-    } else {
-        this.camera.lookAt(0, 5, 0);
     }
-
     this.renderer.render(this.scene, this.camera);
   }
 
   private checkCollisions() {
     if (this.ballVelocity > 0) return;
-
     this.raycaster.set(this.ball.position, new THREE.Vector3(0, -1, 0));
     const hits = this.raycaster.intersectObjects(this.tower.children, true);
-
-    if (hits.length > 0 && hits[0].distance < 0.45) {
+    if (hits.length > 0 && hits[0].distance < 0.5) {
         const obj = hits[0].object;
-        if (obj.userData.isWinPlatform) {
-            this.isPaused = true;
-            this.state.onWin();
-            return;
-        }
-        if (obj.userData.isHazard) {
-            this.isPaused = true;
-            this.state.onLoss();
-            return;
-        }
-
+        if (obj.userData.isWinPlatform) return this.state.onWin();
+        if (obj.userData.isHazard) return this.state.onLoss();
         this.ballVelocity = this.jumpForce;
         if (this.lastHitPlatform !== obj.parent) {
             this.state.onScoreUpdate(10);
@@ -180,10 +150,10 @@ export class HelixEngine {
   public resetToStart() {
     this.ball.position.set(0, 8.5, 5.5);
     this.ballVelocity = 0;
-    this.isPaused = true;
-    this.autoRotate = true;
+    this.camera.position.y = 15;
+    this.camera.lookAt(0, 5, 0);
   }
 
-  public setSkin(skin: BallSkin) { /* skin logic here */ }
+  public setSkin(s: string) {}
   public dispose() { this.renderer.dispose(); }
 }

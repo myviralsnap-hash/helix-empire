@@ -9,11 +9,7 @@ export function useBilling(addViralCoins: (n: number) => void) {
 
   useEffect(() => {
     const CdvPurchase = (window as any).CdvPurchase;
-    if (!CdvPurchase || !CdvPurchase.store) {
-        console.warn("CdvPurchase not found");
-        return;
-    }
-
+    if (!CdvPurchase || !CdvPurchase.store) return;
     const store = CdvPurchase.store;
 
     store.register([
@@ -27,30 +23,22 @@ export function useBilling(addViralCoins: (n: number) => void) {
       tx.finish();
     });
 
-    store.ready(() => {
-        setIsReady(true);
-    });
-
+    store.ready(() => setIsReady(true));
     store.initialize([CdvPurchase.Platform.GOOGLE_PLAY]);
-
   }, [addViralCoins]);
 
   const purchase = (id: string) => {
     const CdvPurchase = (window as any).CdvPurchase;
-    if (!CdvPurchase) return toast.error("Hardware billing not detected.");
+    if (!CdvPurchase) return toast.error("Not on device");
 
     const store = CdvPurchase.store;
-    const product = store.get(id);
+    const p = store.get(id);
 
-    if (product) {
-        if (product.canPurchase) {
-            store.order(product);
-        } else {
-            toast.error("You already own this or it's unavailable.");
-        }
+    if (p) {
+        store.order(p);
     } else {
-        store.update(); // Force refresh from server
-        toast.error("Connecting to Google Play... please wait 10 seconds.");
+        store.update(); // Try to sync
+        toast.info("Connecting to Google Play Store... please try again in a moment.");
     }
   };
 
