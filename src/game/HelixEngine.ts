@@ -41,7 +41,7 @@ export class HelixEngine {
 
     // Stars
     const starGeo = new THREE.BufferGeometry();
-    const starCount = 1500;
+    const starCount = 2000;
     const posArray = new Float32Array(starCount * 3);
     for(let i=0; i<starCount*3; i++) posArray[i] = (Math.random() - 0.5) * 100;
     starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
@@ -62,7 +62,11 @@ export class HelixEngine {
     sun.position.set(5, 10, 7);
     this.scene.add(sun);
 
-    this.ball = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 32), new THREE.MeshStandardMaterial({ color: 0xff4500 }));
+    // Ball with Transparency enabled for glass skin
+    this.ball = new THREE.Mesh(
+        new THREE.SphereGeometry(0.45, 32, 32),
+        new THREE.MeshStandardMaterial({ color: 0xff4500, metalness: 0.5, roughness: 0.2, transparent: true })
+    );
     this.ball.position.set(0, 8.5, 5.5);
     this.scene.add(this.ball);
 
@@ -204,9 +208,13 @@ export class HelixEngine {
 
   public setSkin(s: string) {
     if (this.ball) {
-        if (s === 'gold') (this.ball.material as THREE.MeshStandardMaterial).color.set(0xffd700);
-        else if (s === 'glass') (this.ball.material as THREE.MeshStandardMaterial).opacity = 0.5;
-        else (this.ball.material as THREE.MeshStandardMaterial).color.set(0xff4500);
+        const mat = this.ball.material as THREE.MeshStandardMaterial;
+        mat.opacity = 1.0;
+        if (s === 'gold') mat.color.set(0xffd700);
+        else if (s === 'glass') { mat.color.set(0xffffff); mat.opacity = 0.4; }
+        else if (s === 'yellow') mat.color.set(0xffff00);
+        else if (s === 'crown') mat.color.set(0xff00ff);
+        else mat.color.set(0xff4500);
     }
   }
 

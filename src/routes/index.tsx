@@ -15,17 +15,21 @@ function GamePage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<HelixEngine | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const { user, profile, addJumpPoints, refreshProfile, requestPayout } = useAuth()
+  const { profile, addJumpPoints, requestPayout } = useAuth()
 
   const [score, setScore] = useState(0)
   const [level, setLevel] = useState(1)
   const [gameState, setGameState] = useState<'HOME' | 'PLAYING' | 'REVIVE' | 'WIN'>('HOME')
   const [activeTab, setActiveTab] = useState<'play' | 'inventory' | 'store' | 'event'>('play')
-  const [localJP, setLocalJP] = useState(0)
 
+  // Effect: Sync score to DB on Win or Loss
   useEffect(() => {
-    if (profile) setLocalJP(Number(profile.jump_balance))
-  }, [profile])
+      if (gameState === 'WIN' || gameState === 'REVIVE') {
+          if (score > 0) {
+              addJumpPoints(score);
+          }
+      }
+  }, [gameState]);
 
   useEffect(() => {
     if (!containerRef.current || activeTab !== 'play') return
@@ -43,7 +47,6 @@ function GamePage() {
       },
       onScoreUpdate: (pts) => {
           setScore(prev => prev + pts)
-          setLocalJP(prev => prev + pts)
       }
     })
     engineRef.current = engine
@@ -55,23 +58,18 @@ function GamePage() {
   }, [level, activeTab])
 
   const startGame = () => {
-    // STOP PREVIOUS MUSIC ENTIRELY
     if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
-        audioRef.current = null;
     }
-
     const audio = new Audio(`music/tier${((level-1) % 15) + 1}.MP3`);
     audio.loop = true;
-    audio.play().catch(e => console.log("Audio play blocked", e));
+    audio.play().catch(() => {});
     audioRef.current = audio;
 
-    setScore(0);
+    setScore(0); // Reset game score to zero for new game
     setGameState('PLAYING');
-    setTimeout(() => {
-        engineRef.current?.setPaused(false);
-    }, 100);
+    setTimeout(() => engineRef.current?.setPaused(false), 100);
   }
 
   const handleRevive = async () => {
@@ -98,19 +96,17 @@ function GamePage() {
     <div className="relative w-full h-screen overflow-hidden bg-black text-white">
       <div ref={containerRef} className="absolute inset-0 z-0" />
 
-      {/* TOP HUD */}
-      {gameState !== 'PLAYING' && (
-        <div className="absolute top-12 left-0 right-0 px-6 flex justify-between items-center z-[1000] pointer-events-none">
-            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-                <Coins className="h-4 w-4 text-yellow-400" />
-                <span className="font-black text-sm">{profile?.coin_balance || 0}</span>
-            </div>
-            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-                <Zap className="h-4 w-4 text-blue-400" />
-                <span className="font-black text-sm">{localJP.toLocaleString()}</span>
-            </div>
-        </div>
-      )}
+      {/* TOP HUD (Persistent) */}
+      <div className="absolute top-12 left-0 right-0 px-6 flex justify-between items-center z-[1000] pointer-events-none">
+          <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+              <Coins className="h-4 w-4 text-yellow-400" />
+              <span className="font-black text-sm">{profile?.coin_balance || 0}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+              <Zap className="h-4 w-4 text-blue-400" />
+              <span className="font-black text-sm">{(profile?.jump_balance || 0).toLocaleString()}</span>
+          </div>
+      </div>
 
       {gameState === 'PLAYING' && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none">
@@ -155,7 +151,6 @@ function GamePage() {
         setActiveTab={setActiveTab}
         onSkinSelect={(s) => engineRef.current?.setSkin(s)}
         isHidden={gameState === 'PLAYING'}
-        onTabChange={(t) => { if(t !== 'play') setGameState('HOME'); }}
         requestPayout={requestPayout}
       />
     </div>
