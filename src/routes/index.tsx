@@ -1,10 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, state, useState } from 'react'
 import { HelixEngine } from '@/game/HelixEngine'
 import { GameUI } from '@/components/GameUI'
 import { useAuth } from '@/hooks/use-auth'
 import { AdMob, RewardAdPluginEvents } from '@capacitor-community/admob'
 import { Browser } from '@capacitor/browser'
+import { Coins, Zap } from 'lucide-react'
 
 export const Route = createFileRoute('/')({
   component: GamePage,
@@ -19,18 +20,15 @@ function GamePage() {
   const [score, setScore] = useState(0)
   const [level, setLevel] = useState(1)
   const [gameState, setGameState] = useState<'HOME' | 'PLAYING' | 'REVIVE' | 'WIN'>('HOME')
-  const [activeTab, setActiveTab] = useState('play')
+  const [activeTab, setActiveTab] = useState<'play' | 'inventory' | 'store' | 'event'>('play')
   const [localJP, setLocalJP] = useState(0)
 
   useEffect(() => {
     if (profile) setLocalJP(Number(profile.jump_balance))
   }, [profile])
 
-  // EFFECT: Handle Engine Lifecycle
   useEffect(() => {
     if (!containerRef.current || activeTab !== 'play') return
-
-    console.log("Initializing Engine for Level", level);
 
     const engine = new HelixEngine(containerRef.current, {
       score: 0,
@@ -45,35 +43,40 @@ function GamePage() {
     engineRef.current = engine
 
     return () => {
-        console.log("Cleaning up Engine...");
         engine.dispose();
         engineRef.current = null;
     }
   }, [level, activeTab])
 
   const startGame = () => {
-    if (audioRef.current) audioRef.current.pause();
     const audio = new Audio(`music/tier${((level-1) % 15) + 1}.MP3`);
     audio.loop = true;
-    audio.play().catch(e => console.log("Audio play blocked", e));
+    audio.play().catch(() => {});
     audioRef.current = audio;
 
     setScore(0);
     setGameState('PLAYING');
-    engineRef.current?.setPaused(false);
+    setTimeout(() => {
+        engineRef.current?.setPaused(false);
+    }, 100);
   }
 
   const handleRevive = async () => {
     try {
         await AdMob.prepareRewardVideoAd({ adId: 'ca-app-pub-3940256099942544/5224354917' });
         await AdMob.showRewardVideoAd();
-        const listener = AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
+
+        // Use a one-time listener to prevent loops
+        const listener = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
             setGameState('PLAYING');
             engineRef.current?.setPaused(false);
-            listener.remove();
+            if (audioRef.current) audioRef.current.play();
+            listener.remove(); // Clean up immediately
         });
     } catch (e) {
-        setGameState('HOME');
+        // If ad fails, just let them play anyway (failsafe)
+        setGameState('PLAYING');
+        engineRef.current?.setPaused(false);
     }
   }
 
@@ -83,23 +86,37 @@ function GamePage() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black text-white">
-      {/* 3D Container - Behind everything */}
+      {/* 3D Game Layer */}
       <div
         ref={containerRef}
-        className={`absolute inset-0 z-0 transition-opacity duration-500 ${activeTab === 'play' ? 'opacity-100' : 'opacity-0'}`}
+        className="absolute inset-0 z-0"
       />
 
-      {/* Gameplay HUD */}
-      {gameState === 'PLAYING' && activeTab === 'play' && (
+      {/* TOP HUD - Points & Coins (Visible everywhere except when actually playing) */}
+      {gameState !== 'PLAYING' && (
+        <div className="absolute top-12 left-0 right-0 px-6 flex justify-between items-center z-[1000] pointer-events-none">
+            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                <Coins className="h-4 w-4 text-yellow-400" />
+                <span className="font-black text-sm">{profile?.coin_balance || 0}</span>
+            </div>
+            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                <Zap className="h-4 w-4 text-blue-400" />
+                <span className="font-black text-sm">{localJP.toLocaleString()}</span>
+            </div>
+        </div>
+      )}
+
+      {/* SCORE DISPLAY during gameplay */}
+      {gameState === 'PLAYING' && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none">
             <div className="text-[10px] opacity-50 uppercase font-black tracking-widest">Stage {level}</div>
             <div className="text-7xl font-black italic">{score}</div>
         </div>
       )}
 
-      {/* GAME OVERLAYS - Only visible on Play tab */}
+      {/* GAME OVERLAYS (Home, Win, Revive) */}
       {activeTab === 'play' && gameState !== 'PLAYING' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-[50] bg-black/40 backdrop-blur-[2px] px-6 text-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-[500] bg-black/50 backdrop-blur-[2px] px-6 text-center">
 
             {gameState === 'HOME' && (
                 <div className="animate-in fade-in zoom-in duration-300 flex flex-col items-center">
@@ -110,9 +127,9 @@ function GamePage() {
                     >
                         PLAY
                     </button>
-                    <div className="mt-12 flex gap-8 text-[12px] font-black uppercase tracking-widest opacity-40">
-                        <span onClick={() => openLink('https://viralsnap.online/privacy')}>Privacy</span>
-                        <span onClick={() => openLink('https://viralsnap.online/terms')}>Terms</span>
+                    <div className="mt-12 flex gap-8 text-[12px] font-black uppercase tracking-widest opacity-40 pointer-events-auto">
+                        <span className="cursor-pointer hover:text-primary" onClick={() => openLink('https://viralsnap.online/privacy')}>Privacy</span>
+                        <span className="cursor-pointer hover:text-primary" onClick={() => openLink('https://viralsnap.online/terms')}>Terms</span>
                     </div>
                 </div>
             )}
@@ -149,16 +166,15 @@ function GamePage() {
         </div>
       )}
 
-      {/* Main UI System - Always available unless playing */}
+      {/* Main UI System */}
       <GameUI
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         viralCoins={profile?.coin_balance || 0}
         jumpPoints={localJP}
         onSkinSelect={(s) => engineRef.current?.setSkin(s)}
         isHidden={gameState === 'PLAYING'}
-        onTabChange={(t) => {
-            setActiveTab(t);
-            if(t !== 'play') setGameState('HOME');
-        }}
+        onTabChange={(t) => { if(t !== 'play') setGameState('HOME'); }}
         requestPayout={requestPayout}
       />
     </div>
