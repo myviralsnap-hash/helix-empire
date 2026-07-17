@@ -23,7 +23,7 @@ function GamePage() {
   const [score, setScore] = useState(0)
   const [level, setLevel] = useState(1)
   const [currentSkin, setCurrentSkin] = useState('fire')
-  const [levelCounter, setLevelCounter] = useState(0) // Track levels for interstitial ads
+  const [levelCounter, setLevelCounter] = useState(0)
 
   // Auth States
   const [isLogin, setIsLogin] = useState(true)
@@ -33,7 +33,7 @@ function GamePage() {
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
 
-  // Initialize AdMob
+  // Pre-load Ads
   useEffect(() => {
     if (user) {
         AdMob.prepareRewardVideoAd({ adId: 'ca-app-pub-3940256099942544/5224354917' }).catch(() => {});
@@ -41,12 +41,11 @@ function GamePage() {
     }
   }, [user]);
 
-  // Sync Score and Check Ads
+  // Sync Score and Interstitial Ads
   useEffect(() => {
       if (gameState === 'WIN') {
           if (score > 0) addJumpPoints(score);
 
-          // Trigger Interstitial every 3 levels
           const newCount = levelCounter + 1;
           setLevelCounter(newCount);
           if (newCount % 3 === 0) {
@@ -104,7 +103,6 @@ function GamePage() {
         });
         await AdMob.showRewardVideoAd();
     } catch (e) {
-        // Backup if ad fails to show
         setGameState('PLAYING');
         engineRef.current?.setPaused(false);
     }
@@ -112,7 +110,7 @@ function GamePage() {
 
   const handleAuth = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!isLogin && !agreed) return alert("Please agree to the terms.");
+      if (!isLogin && !agreed) return alert("Please agree to the terms to join.");
       try {
           if (isLogin) await signIn(email, password);
           else await signUp(email, password, username);
@@ -122,23 +120,21 @@ function GamePage() {
   if (!user) {
       return (
           <div className="h-screen w-full bg-[#050510] flex flex-col items-center justify-center p-8 text-white overflow-y-auto">
-              <div className="w-full max-w-sm flex flex-col items-center mb-8">
-                  <h1 className="text-6xl font-black italic mb-2 text-primary tracking-tighter leading-none">HELIX</h1>
-                  <p className="text-white/40 uppercase tracking-[0.4em] text-[9px] font-bold">Empire Rewards System</p>
-              </div>
+              <h1 className="text-6xl font-black italic mb-2 text-primary tracking-tighter">HELIX</h1>
+              <p className="text-white/40 uppercase tracking-[0.4em] text-[9px] mb-12 font-bold">Empire Rewards System</p>
 
-              <form onSubmit={handleAuth} className="w-full max-w-sm space-y-3 pb-12">
+              <form onSubmit={handleAuth} className="w-full max-w-sm space-y-3 pb-10">
                   {!isLogin && (
-                      <div className="bg-white/5 border border-white/10 rounded-2xl flex items-center px-4 py-4 focus-within:border-primary/50 transition-all">
+                      <div className="bg-white/5 border border-white/10 rounded-2xl flex items-center px-4 py-4">
                           <UserIcon className="h-5 w-5 text-white/20 mr-3" />
                           <input type="text" placeholder="Username" className="bg-transparent outline-none w-full font-bold" value={username} onChange={e => setUsername(e.target.value)} required />
                       </div>
                   )}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl flex items-center px-4 py-4 focus-within:border-primary/50 transition-all">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl flex items-center px-4 py-4">
                       <Mail className="h-5 w-5 text-white/20 mr-3" />
                       <input type="email" placeholder="Email" className="bg-transparent outline-none w-full font-bold" value={email} onChange={e => setEmail(e.target.value)} required />
                   </div>
-                  <div className="bg-white/5 border border-white/10 rounded-2xl flex items-center px-4 py-4 focus-within:border-primary/50 transition-all">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl flex items-center px-4 py-4">
                       <Lock className="h-5 w-5 text-white/20 mr-3" />
                       <input type={showPassword ? "text" : "password"} placeholder="Password" className="bg-transparent outline-none w-full font-bold" value={password} onChange={e => setPassword(e.target.value)} required />
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-white/20 px-2">
@@ -147,8 +143,8 @@ function GamePage() {
                   </div>
                   {!isLogin && (
                       <div className="flex items-center gap-3 px-2 py-2">
-                          <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="accent-primary" />
-                          <span className="text-[10px] text-white/40 font-bold uppercase tracking-tighter">I am 18+ and agree to the Terms</span>
+                          <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+                          <span className="text-[10px] text-white/40 font-bold uppercase">I am 18+ and agree to Terms</span>
                       </div>
                   )}
                   <button type="submit" className="w-full bg-primary py-5 rounded-3xl font-black uppercase tracking-widest shadow-glow active:scale-95 transition-all mt-4">
@@ -168,10 +164,10 @@ function GamePage() {
   }
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-black text-white font-sans">
+    <div className="relative w-full h-screen overflow-hidden bg-black text-white">
       <div ref={containerRef} className="absolute inset-0 z-0" />
 
-      {/* PERSISTENT HUD */}
+      {/* HUD */}
       <div className="absolute top-12 left-0 right-0 px-6 flex justify-between items-center z-[1000] pointer-events-none">
           <div className="flex items-center gap-2 bg-black/60 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10">
               <Coins className="h-4 w-4 text-yellow-400 shadow-glow" />
@@ -184,7 +180,7 @@ function GamePage() {
       </div>
 
       {gameState === 'PLAYING' && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none animate-in slide-in-from-top duration-300">
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none">
             <div className="text-[10px] opacity-50 uppercase font-black tracking-widest">Stage {level}</div>
             <div className="text-7xl font-black italic drop-shadow-glow">{score}</div>
         </div>

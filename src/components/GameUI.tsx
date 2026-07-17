@@ -88,7 +88,7 @@ export function GameUI({ activeTab, setActiveTab, currentSkin, onSkinSelect, isH
         {/* SHOP: EMPIRE PACK DETAIL */}
         {activeTab === 'store_pack' && (
             <div className="w-full max-w-md space-y-8 text-center">
-                <button onClick={() => setActiveTab('store')} className="flex items-center gap-2 text-white/40 font-bold uppercase text-[10px] mb-8 active:scale-90"><ArrowLeft className="h-4 w-4" /> Back to Shop</button>
+                <button onClick={() => setActiveTab('store')} className="flex items-center gap-2 text-white/40 font-bold uppercase text-[10px] mb-8"><ArrowLeft className="h-4 w-4" /> Back to Shop</button>
                 <div className="bg-white/5 border-4 border-primary/20 p-8 rounded-[50px] space-y-6">
                     <Smartphone className="h-24 w-24 text-primary mx-auto" />
                     <h3 className="text-3xl font-black italic uppercase">Empire Bundle</h3>
@@ -106,7 +106,7 @@ export function GameUI({ activeTab, setActiveTab, currentSkin, onSkinSelect, isH
         {/* SHOP: COINS DETAIL */}
         {activeTab === 'store_coins' && (
             <div className="w-full max-w-md space-y-8 text-center">
-                <button onClick={() => setActiveTab('store')} className="flex items-center gap-2 text-white/40 font-bold uppercase text-[10px] mb-8 active:scale-90"><ArrowLeft className="h-4 w-4" /> Back to Shop</button>
+                <button onClick={() => setActiveTab('store')} className="flex items-center gap-2 text-white/40 font-bold uppercase text-[10px] mb-8"><ArrowLeft className="h-4 w-4" /> Back to Shop</button>
                 <div className="bg-white/5 border-4 border-yellow-500/20 p-8 rounded-[50px] space-y-6">
                     <ShoppingCart className="h-24 w-24 text-yellow-400 mx-auto" />
                     <h3 className="text-3xl font-black italic uppercase">1,000 Coins</h3>
@@ -123,6 +123,9 @@ export function GameUI({ activeTab, setActiveTab, currentSkin, onSkinSelect, isH
             <div className="bg-gradient-to-br from-green-900 to-emerald-900 p-8 rounded-[50px] border-4 border-white/10 mb-8 shadow-2xl">
                 <Gift className="h-16 w-16 text-green-400 mx-auto mb-4" />
                 <h3 className="text-2xl font-black uppercase italic">Rewards</h3>
+                <div className="mt-4 text-sm font-bold bg-black/20 py-4 rounded-2xl border border-white/5">
+                    Your Balance: <span className="text-blue-400">{(profile?.jump_balance || 0).toLocaleString()} JP</span>
+                </div>
                 <button onClick={() => setActiveTab('catalog')} className="w-full bg-white text-green-900 py-5 rounded-3xl font-black mt-6 active:scale-95 transition-all shadow-lg">BROWSE CATALOG</button>
             </div>
             <div className="bg-white/5 rounded-[40px] p-6 border-2 border-white/10">
@@ -140,10 +143,9 @@ export function GameUI({ activeTab, setActiveTab, currentSkin, onSkinSelect, isH
           </div>
         )}
 
-        {/* CATALOG VIEW */}
         {activeTab === 'catalog' && (
             <div className="w-full max-w-md space-y-8 text-center pb-20">
-                <button onClick={() => setActiveTab('event')} className="flex items-center gap-2 text-white/40 font-bold uppercase text-[10px] mb-8 active:scale-90"><ArrowLeft className="h-4 w-4" /> Back</button>
+                <button onClick={() => setActiveTab('event')} className="flex items-center gap-2 text-white/40 font-bold uppercase text-[10px] mb-8"><ArrowLeft className="h-4 w-4" /> Back</button>
                 <h2 className="text-4xl font-black italic uppercase text-green-400">Prize Catalog</h2>
                 <div className="grid grid-cols-1 gap-4">
                     {REWARDS.map(reward => (
@@ -158,7 +160,7 @@ export function GameUI({ activeTab, setActiveTab, currentSkin, onSkinSelect, isH
                 </div>
                 <div className="p-6 bg-blue-500/10 border border-blue-500/20 rounded-3xl mt-8">
                     <Info className="h-5 w-5 text-blue-400 mx-auto mb-2" />
-                    <p className="text-[10px] text-blue-300 font-bold uppercase leading-relaxed">Submit your request once you reach the balance. Rewards are sent via email.</p>
+                    <p className="text-[10px] text-blue-300 font-bold uppercase">Cashouts are processed within 48 hours to your registered email.</p>
                 </div>
             </div>
         )}
@@ -168,7 +170,7 @@ export function GameUI({ activeTab, setActiveTab, currentSkin, onSkinSelect, isH
 
       <nav className={cn(
         "bg-black/95 backdrop-blur-3xl border-t border-white/10 flex items-center justify-around px-2 py-6 pb-10 pointer-events-auto transition-transform duration-500 z-[3000]",
-        (isHidden && activeTab === 'play') ? "translate-y-full" : "translate-y-0"
+        isHidden && activeTab === 'play' ? "translate-y-full" : "translate-y-0"
       )}>
         <NavButton icon={Box} label="Skins" active={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} />
         <NavButton icon={ShoppingBag} label="Shop" active={activeTab === 'store'} onClick={() => setActiveTab('store')} />
